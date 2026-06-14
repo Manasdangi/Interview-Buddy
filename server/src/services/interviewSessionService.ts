@@ -60,18 +60,12 @@ export async function startInterviewSession(interviewType?: InterviewType, diffi
   return session
 }
 
-function restoreSession(sessionId: string, sessionSnapshot?: InterviewSession) {
-  if (!sessionSnapshot || sessionSnapshot.id !== sessionId) return null
-  sessions.set(sessionId, sessionSnapshot)
-  return sessionSnapshot
-}
-
-export async function addInterviewMessage(sessionId: string | undefined, message?: string, sessionSnapshot?: InterviewSession) {
+export async function addInterviewMessage(sessionId: string | undefined, message?: string) {
   if (!sessionId) {
     throw new HttpError(400, 'sessionId is required.')
   }
 
-  const session = sessions.get(sessionId) ?? restoreSession(sessionId, sessionSnapshot)
+  const session = sessions.get(sessionId)
   if (!session) {
     throw new HttpError(404, 'Session not found. Please start a new interview.')
   }
@@ -96,12 +90,12 @@ export async function addInterviewMessage(sessionId: string | undefined, message
   return { aiMessage, session }
 }
 
-export async function completeInterviewSession(sessionId: string | undefined, sessionSnapshot?: InterviewSession) {
+export async function completeInterviewSession(sessionId: string | undefined) {
   if (!sessionId) {
     throw new HttpError(400, 'sessionId is required.')
   }
 
-  const session = sessions.get(sessionId) ?? restoreSession(sessionId, sessionSnapshot)
+  const session = sessions.get(sessionId)
   if (!session) {
     throw new HttpError(404, 'Session not found. Please start a new interview.')
   }

@@ -40,18 +40,17 @@ export const startInterview = async (interviewType: InterviewType, difficulty: D
   return response.data.session
 }
 
-export const sendInterviewMessage = async (session: InterviewSession, message: string) => {
+export const sendInterviewMessage = async (sessionId: string, message: string) => {
   const response = await client.post<{ aiMessage: InterviewMessage; session: InterviewSession }>(
-    `/interviews/${session.id}/message`,
-    { message, session },
+    `/interviews/${sessionId}/message`,
+    { message },
   )
   return response.data
 }
 
-export const completeInterview = async (session: InterviewSession) => {
+export const completeInterview = async (sessionId: string) => {
   const response = await client.post<{ scorecard: InterviewScorecard; session: InterviewSession }>(
-    `/interviews/${session.id}/complete`,
-    { session },
+    `/interviews/${sessionId}/complete`,
   )
   return response.data
 }

@@ -1,43 +1,26 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useInterviewStore } from '../store/interviewStore'
-import { useAuthStore } from '../store/authStore'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 
 export default function DashboardPage() {
   const { sessions, loadSessions, loading, error } = useInterviewStore()
-  const { user, loading: authLoading, initializeAuth, signInWithGoogle } = useAuthStore()
 
   useEffect(() => {
-    initializeAuth()
-  }, [initializeAuth])
-
-  useEffect(() => {
-    if (!authLoading) {
-      loadSessions()
-    }
-  }, [authLoading, loadSessions, user?.uid])
+    loadSessions()
+  }, [])
 
   return (
     <div className="space-y-8">
       <div className="rounded-[2rem] border border-slate-800/80 bg-slate-950/90 p-8 shadow-soft">
         <h1 className="text-4xl font-semibold text-white">Dashboard</h1>
-        <p className="mt-3 text-slate-400">
-          {user ? 'Review your saved interview sessions and continue practicing anytime.' : 'Sign in to save and review interview history across devices.'}
-        </p>
-        {!user ? (
-          <div className="mt-6">
-            <Button onClick={signInWithGoogle} disabled={authLoading}>
-              {authLoading ? 'Checking account...' : 'Sign in with Google'}
-            </Button>
-          </div>
-        ) : null}
+        <p className="mt-3 text-slate-400">Review your past interview sessions and continue practicing anytime.</p>
       </div>
 
       {error ? <p className="text-sm text-rose-300">{error}</p> : null}
-      {(loading || authLoading) && <p className="text-slate-400">Loading sessions...</p>}
+      {loading && <p className="text-slate-400">Loading sessions…</p>}
 
       <div className="grid gap-6">
         {sessions.length === 0 ? (

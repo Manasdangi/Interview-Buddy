@@ -1,13 +1,9 @@
 import { completeInterviewSession, HttpError } from '../../../server/src/services/interviewSessionService'
-import type { InterviewSession } from '../../../server/src/types/interview'
 
 type ApiRequest = {
   method?: string
   query?: {
     sessionId?: string | string[]
-  }
-  body?: {
-    session?: InterviewSession
   }
 }
 
@@ -34,7 +30,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    const payload = await completeInterviewSession(getParam(req.query?.sessionId), req.body?.session)
+    const payload = await completeInterviewSession(getParam(req.query?.sessionId))
     return res.status(200).json(payload)
   } catch (error) {
     return sendError(res, error)

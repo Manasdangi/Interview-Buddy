@@ -11,12 +11,6 @@ import {
   sendInterviewMessage,
   startInterview,
 } from '../services/interviewApi'
-import {
-  fetchSavedInterviewSession,
-  fetchSavedInterviewSessions,
-  saveInterviewSession,
-} from '../services/interviewHistory'
-import { useAuthStore } from './authStore'
 
 type InterviewState = {
   currentSession: InterviewSession | null
@@ -42,7 +36,6 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const session = await startInterview(interviewType, difficulty)
-      await saveInterviewSession(useAuthStore.getState().user?.uid, session)
       set({ currentSession: session, sessions: [session, ...get().sessions] })
       return session
     } catch (error) {
@@ -62,8 +55,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
 
     set({ loading: true, error: null })
     try {
-      const payload = await sendInterviewMessage(session, message)
-      await saveInterviewSession(useAuthStore.getState().user?.uid, payload.session)
+      const payload = await sendInterviewMessage(session.id, message)
       set((state) => ({
         currentSession: payload.session,
         sessions: state.sessions.map((item) =>
@@ -87,8 +79,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
     }
     set({ loading: true, error: null })
     try {
-      const payload = await completeInterviewApi(session)
-      await saveInterviewSession(useAuthStore.getState().user?.uid, payload.session)
+      const payload = await completeInterviewApi(session.id)
       set((state) => ({
         currentSession: payload.session,
         sessions: state.sessions.map((item) =>
@@ -109,8 +100,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
   loadSession: async (sessionId) => {
     set({ loading: true, error: null })
     try {
-      const savedSession = await fetchSavedInterviewSession(useAuthStore.getState().user?.uid, sessionId)
-      const session = savedSession ?? (await fetchInterviewSession(sessionId))
+      const session = await fetchInterviewSession(sessionId)
       set({ currentSession: session, sessions: [session, ...get().sessions.filter((s) => s.id !== session.id)] })
     } catch (error) {
       set({ error: (error as Error).message || 'Unable to load session.' })
@@ -122,8 +112,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
   loadSessions: async () => {
     set({ loading: true, error: null })
     try {
-      const userId = useAuthStore.getState().user?.uid
-      const sessions = userId ? await fetchSavedInterviewSessions(userId) : await fetchInterviewSessions()
+      const sessions = await fetchInterviewSessions()
       set({ sessions })
     } catch (error) {
       set({ error: (error as Error).message || 'Unable to load sessions.' })
