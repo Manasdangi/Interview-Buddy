@@ -21,7 +21,9 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   void _next
   console.error(error)
-  const statusCode = error instanceof HttpError ? error.statusCode : 500
+  const statusCode = 'statusCode' in error && typeof error.statusCode === 'number'
+    ? error.statusCode
+    : error instanceof HttpError ? error.statusCode : 500
   res.status(statusCode).json({ error: error.message || 'Something went wrong.' })
 })
 

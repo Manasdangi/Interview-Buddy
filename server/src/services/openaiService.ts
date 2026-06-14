@@ -1,5 +1,14 @@
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent'
 
+export class GeminiServiceError extends Error {
+  statusCode: number
+
+  constructor(statusCode: number, message: string) {
+    super(message)
+    this.statusCode = statusCode
+  }
+}
+
 type GeminiContentPart = {
   text?: string
 }
@@ -19,9 +28,31 @@ type GeminiResponse = {
 function getApiKey() {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is required. Add it to server/.env and restart the backend.')
+    throw new GeminiServiceError(500, 'GEMINI_API_KEY is required. Add it to server/.env and restart the backend.')
   }
   return apiKey
+}
+
+async function readGeminiError(response: Response, fallback: string) {
+  let message: string
+  const errorText = await response.text().catch(() => '')
+
+  try {
+    const payload = JSON.parse(errorText) as { error?: { message?: string; status?: string } }
+
+    if (response.status === 429 || payload.error?.status === 'RESOURCE_EXHAUSTED') {
+      return new GeminiServiceError(
+        429,
+        'Gemini quota is exhausted for this API key. Please wait for the quota reset or add billing/upgrade the Gemini plan, then click Send answer again.',
+      )
+    }
+
+    message = payload.error?.message ?? fallback
+  } catch {
+    message = errorText || fallback
+  }
+
+  return new GeminiServiceError(response.status, message)
 }
 
 export async function createAiResponse(systemPrompt: string, userPrompt: string) {
@@ -48,14 +79,13 @@ export async function createAiResponse(systemPrompt: string, userPrompt: string)
   })
 
   if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Gemini API error: ${response.status} ${errorText}`)
+    throw await readGeminiError(response, 'Gemini could not generate a response.')
   }
 
   const data = (await response.json()) as GeminiResponse
   const content = data?.candidates?.[0]?.content ?? data?.output?.[0]?.content
   if (!content) {
-    throw new Error('Invalid Gemini response format')
+    throw new GeminiServiceError(502, 'Gemini returned an invalid response. Please retry.')
   }
 
   if (typeof content === 'string') {
@@ -103,14 +133,13 @@ export async function transcribeAudio(audioBase64: string, mimeType: string) {
   })
 
   if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Gemini transcription error: ${response.status} ${errorText}`)
+    throw await readGeminiError(response, 'Gemini could not transcribe the voice recording.')
   }
 
   const data = (await response.json()) as GeminiResponse
   const content = data?.candidates?.[0]?.content ?? data?.output?.[0]?.content
   if (!content) {
-    throw new Error('Invalid Gemini transcription response format')
+    throw new GeminiServiceError(502, 'Gemini returned an invalid transcription response. Please retry.')
   }
 
   if (typeof content === 'string') {

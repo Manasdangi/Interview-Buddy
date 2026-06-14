@@ -18,7 +18,7 @@ function getParam(value: string | string[] | undefined) {
 }
 
 function sendError(res: ApiResponse, error: unknown) {
-  const statusCode = error instanceof HttpError ? error.statusCode : 500
+  const statusCode = error instanceof HttpError ? error.statusCode : error instanceof Error && 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500
   const message = error instanceof Error ? error.message : 'Something went wrong.'
   res.status(statusCode).json({ error: message })
 }

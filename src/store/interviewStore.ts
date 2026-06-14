@@ -64,7 +64,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
       }))
       return true
     } catch (error) {
-      set({ error: `${(error as Error).message || 'Unable to send answer.'} Please retry.` })
+      set({ error: (error as Error).message || 'Unable to send answer. Please retry.' })
       return false
     } finally {
       set({ loading: false })
