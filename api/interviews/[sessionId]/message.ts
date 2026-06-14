@@ -1,4 +1,5 @@
 import { addInterviewMessage, HttpError } from '../../../server/src/services/interviewSessionService'
+import type { InterviewSession } from '../../../server/src/types/interview'
 
 type ApiRequest = {
   method?: string
@@ -7,6 +8,7 @@ type ApiRequest = {
   }
   body?: {
     message?: string
+    session?: InterviewSession
   }
 }
 
@@ -33,7 +35,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    const payload = await addInterviewMessage(getParam(req.query?.sessionId), req.body?.message)
+    const payload = await addInterviewMessage(getParam(req.query?.sessionId), req.body?.message, req.body?.session)
     return res.status(200).json(payload)
   } catch (error) {
     return sendError(res, error)

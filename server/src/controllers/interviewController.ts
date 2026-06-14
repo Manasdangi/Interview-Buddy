@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import type {
   Difficulty,
+  InterviewSession,
   InterviewType,
 } from '../types/interview'
 import {
@@ -20,14 +21,15 @@ export async function startInterview(req: Request, res: Response) {
 
 export async function postMessage(req: Request, res: Response) {
   const { sessionId } = req.params
-  const { message } = req.body as { message?: string }
-  const payload = await addInterviewMessage(sessionId, message)
+  const { message, session } = req.body as { message?: string; session?: InterviewSession }
+  const payload = await addInterviewMessage(sessionId, message, session)
   return res.status(200).json(payload)
 }
 
 export async function completeInterview(req: Request, res: Response) {
   const { sessionId } = req.params
-  const payload = await completeInterviewSession(sessionId)
+  const { session } = req.body as { session?: InterviewSession }
+  const payload = await completeInterviewSession(sessionId, session)
   return res.status(200).json(payload)
 }
 
