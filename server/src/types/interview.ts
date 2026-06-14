@@ -1,0 +1,40 @@
+export type InterviewType = 'ROUND_1' | 'ROUND_2' | 'SYSTEM_DESIGN'
+
+export type Difficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
+
+export type MessageRole = 'AI' | 'USER'
+
+export type InterviewStatus = 'ACTIVE' | 'COMPLETED'
+
+export type InterviewMessage = {
+  id: string
+  role: MessageRole
+  content: string
+  createdAt: string
+}
+
+export type InterviewScorecard = {
+  overallScore: number
+  technicalScore: number
+  communicationScore: number
+  problemSolvingScore: number
+  depthScore: number
+  strengths: string[]
+  weaknesses: string[]
+  improvements: string[]
+  recommendedTopics: string[]
+  finalFeedback: string
+}
+
+export type InterviewSession = {
+  id: string
+  interviewType: InterviewType
+  difficulty: Difficulty
+  status: InterviewStatus
+  messages: InterviewMessage[]
+  currentQuestionCount: number
+  maxQuestions: number
+  startedAt: string
+  completedAt?: string
+  scorecard?: InterviewScorecard
+}
