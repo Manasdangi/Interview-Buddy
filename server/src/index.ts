@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import interviewRoutes from './routes/interviewRoutes.js'
+import { HttpError } from './services/interviewSessionService.js'
 
 dotenv.config()
 
@@ -20,7 +21,8 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   void _next
   console.error(error)
-  res.status(500).json({ error: error.message || 'Something went wrong.' })
+  const statusCode = error instanceof HttpError ? error.statusCode : 500
+  res.status(statusCode).json({ error: error.message || 'Something went wrong.' })
 })
 
 app.listen(port, () => {

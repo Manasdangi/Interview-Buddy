@@ -8,11 +8,24 @@ const client = axios.create({
   },
 })
 
+function normalizeApiError(error: unknown) {
+  if (typeof error === 'string') return error
+
+  if (error && typeof error === 'object') {
+    const errorRecord = error as Record<string, unknown>
+    if (typeof errorRecord.message === 'string') return errorRecord.message
+    if (typeof errorRecord.error === 'string') return errorRecord.error
+  }
+
+  return null
+}
+
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (axios.isAxiosError<{ error?: string }>(error)) {
-      return Promise.reject(new Error(error.response?.data?.error || error.message))
+    if (axios.isAxiosError<{ error?: unknown }>(error)) {
+      const responseError = error.response?.data?.error
+      return Promise.reject(new Error(normalizeApiError(responseError) || error.message))
     }
 
     return Promise.reject(error)
