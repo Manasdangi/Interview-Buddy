@@ -16,6 +16,8 @@ export default function InterviewRoomPage() {
   const { currentSession, loading, error, loadSession, sendAnswer, completeInterview } = useInterviewStore()
   const [pendingVoiceTranscript, setPendingVoiceTranscript] = useState<string | null>(null)
   const [voiceReplies, setVoiceReplies] = useState(true)
+  const controlsRef = useRef<HTMLDivElement | null>(null)
+  const lastAutoScrolledMessageIdRef = useRef<string | null>(null)
   const lastSpokenMessageIdRef = useRef<string | null>(null)
 
   const stopSpeech = () => {
@@ -47,6 +49,20 @@ export default function InterviewRoomPage() {
     utterance.rate = 0.95
     window.speechSynthesis.speak(utterance)
   }, [currentSession?.messages, voiceReplies])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const latestMessage = currentSession?.messages.at(-1)
+    if (!latestMessage || latestMessage.role !== 'AI' || latestMessage.id === lastAutoScrolledMessageIdRef.current) return
+
+    lastAutoScrolledMessageIdRef.current = latestMessage.id
+    const frameId = window.requestAnimationFrame(() => {
+      controlsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [currentSession?.messages])
 
   useEffect(() => {
     return () => {
@@ -124,14 +140,16 @@ export default function InterviewRoomPage() {
           </div>
         </Card>
 
-        <InterviewControls
-          onSubmit={handleSend}
-          onComplete={handleComplete}
-          onVoiceStart={stopSpeech}
-          onVoiceTranscript={setPendingVoiceTranscript}
-          loading={loading}
-          disabled={currentSession.status === 'COMPLETED'}
-        />
+        <div ref={controlsRef}>
+          <InterviewControls
+            onSubmit={handleSend}
+            onComplete={handleComplete}
+            onVoiceStart={stopSpeech}
+            onVoiceTranscript={setPendingVoiceTranscript}
+            loading={loading}
+            disabled={currentSession.status === 'COMPLETED'}
+          />
+        </div>
       </div>
     </div>
   )
