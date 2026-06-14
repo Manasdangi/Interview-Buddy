@@ -95,7 +95,7 @@ export default function InterviewRoomPage() {
       <div className="space-y-6">
         <ProblemStatement session={currentSession} />
         <Card className="rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
-          <InterviewTimer startedAt={currentSession.startedAt} />
+          <InterviewTimer startedAt={currentSession.startedAt} completedAt={currentSession.completedAt} />
           <div className="mt-6 space-y-3 text-slate-400">
             <p className="text-sm font-medium text-white">Interview flow</p>
             <p>Answer each prompt clearly. The interviewer will follow up based on your response.</p>
