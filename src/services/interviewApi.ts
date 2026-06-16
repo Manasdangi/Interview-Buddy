@@ -1,11 +1,29 @@
 import axios from 'axios'
-import type { Difficulty, InterviewSession, InterviewType, InterviewMessage, InterviewScorecard } from '../types/interview'
+import type {
+  Difficulty,
+  InterviewExitReason,
+  InterviewMessage,
+  InterviewScorecard,
+  InterviewSession,
+  InterviewSummary,
+  InterviewType,
+  QuestionSet,
+} from '../types/interview'
+import { getAuthToken } from './authToken'
 
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
+})
+
+client.interceptors.request.use((config) => {
+  const token = getAuthToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
 })
 
 function normalizeApiError(error: unknown) {
@@ -32,10 +50,11 @@ client.interceptors.response.use(
   },
 )
 
-export const startInterview = async (interviewType: InterviewType, difficulty: Difficulty) => {
+export const startInterview = async (interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet) => {
   const response = await client.post<{ session: InterviewSession }>('/interviews/start', {
     interviewType,
     difficulty,
+    questionSet,
   })
   return response.data.session
 }
@@ -49,7 +68,7 @@ export const sendInterviewMessage = async (sessionId: string, message: string) =
 }
 
 export const completeInterview = async (sessionId: string) => {
-  const response = await client.post<{ scorecard: InterviewScorecard; session: InterviewSession }>(
+  const response = await client.post<{ scorecard: InterviewScorecard; session: InterviewSession; summary?: InterviewSummary | null }>(
     `/interviews/${sessionId}/complete`,
   )
   return response.data
@@ -71,4 +90,30 @@ export const transcribeVoice = async (audioBase64: string, mimeType: string) => 
     mimeType,
   })
   return response.data.transcript
+}
+
+export const saveInterviewSummary = async (sessionId: string, exitReason: InterviewExitReason, options?: { keepalive?: boolean }) => {
+  const token = getAuthToken()
+  if (!token) return null
+
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  const response = await fetch(`${baseUrl}/interviews/${sessionId}/summary`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ exitReason }),
+    keepalive: options?.keepalive,
+  })
+
+  if (!response.ok) return null
+
+  const data = (await response.json()) as { summary: InterviewSummary }
+  return data.summary
+}
+
+export const fetchInterviewSummaries = async () => {
+  const response = await client.get<{ summaries: InterviewSummary[] }>('/interviews/summaries')
+  return response.data.summaries
 }

@@ -16,6 +16,14 @@ export function ProblemStatement({ session }: ProblemStatementProps) {
           <span className="font-semibold text-white">Difficulty:</span> {session.difficulty.toLowerCase()}
         </p>
         <p>
+          <span className="font-semibold text-white">Set:</span> {session.questionSet ?? 1}
+        </p>
+        {session.dailyQuestionVariant ? (
+          <p>
+            <span className="font-semibold text-white">Daily variant:</span> {session.dailyQuestionVariant.questionDate}
+          </p>
+        ) : null}
+        <p>
           <span className="font-semibold text-white">Questions asked:</span> {session.currentQuestionCount}/{session.maxQuestions}
         </p>
         <p>

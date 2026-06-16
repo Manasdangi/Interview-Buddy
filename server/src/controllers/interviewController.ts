@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 import type {
   Difficulty,
   InterviewType,
+  QuestionSet,
 } from '../types/interview'
 import {
   addInterviewMessage,
@@ -11,10 +12,12 @@ import {
   startInterviewSession,
   transcribeVoiceAudio,
 } from '../services/interviewSessionService'
+import { listSummariesForUser, saveSummaryForCompletedSession, saveSummaryForSession } from '../services/interviewSummaryService'
+import type { InterviewExitReason } from '../types/interview'
 
 export async function startInterview(req: Request, res: Response) {
-  const { interviewType, difficulty } = req.body as { interviewType?: InterviewType; difficulty?: Difficulty }
-  const session = await startInterviewSession(interviewType, difficulty)
+  const { interviewType, difficulty, questionSet } = req.body as { interviewType?: InterviewType; difficulty?: Difficulty; questionSet?: QuestionSet }
+  const session = await startInterviewSession(interviewType, difficulty, questionSet)
   return res.status(201).json({ session })
 }
 
@@ -28,16 +31,31 @@ export async function postMessage(req: Request, res: Response) {
 export async function completeInterview(req: Request, res: Response) {
   const { sessionId } = req.params
   const payload = await completeInterviewSession(sessionId)
-  return res.status(200).json(payload)
+  const summary = await saveSummaryForCompletedSession(payload.session, req.headers.authorization)
+  return res.status(200).json({ ...payload, summary })
 }
 
-export function getSession(req: Request, res: Response) {
+export async function getSession(req: Request, res: Response) {
   const { sessionId } = req.params
-  return res.status(200).json({ session: getInterviewSession(sessionId) })
+  const session = await getInterviewSession(sessionId)
+  return res.status(200).json({ session })
 }
 
-export function listSessions(_req: Request, res: Response) {
-  return res.status(200).json({ sessions: listInterviewSessions() })
+export async function listSessions(_req: Request, res: Response) {
+  const sessions = await listInterviewSessions()
+  return res.status(200).json({ sessions })
+}
+
+export async function saveSummary(req: Request, res: Response) {
+  const { sessionId } = req.params
+  const { exitReason = 'QUIT' } = req.body as { exitReason?: InterviewExitReason }
+  const summary = await saveSummaryForSession(sessionId, req.headers.authorization, exitReason)
+  return res.status(200).json({ summary })
+}
+
+export async function listSummaries(req: Request, res: Response) {
+  const summaries = await listSummariesForUser(req.headers.authorization)
+  return res.status(200).json({ summaries })
 }
 
 export async function transcribeVoice(req: Request, res: Response) {

@@ -3,8 +3,10 @@ import type { NextFunction, Request, Response } from 'express'
 import {
   completeInterview,
   getSession,
+  listSummaries,
   listSessions,
   postMessage,
+  saveSummary,
   startInterview,
   transcribeVoice,
 } from '../controllers/interviewController'
@@ -19,9 +21,11 @@ const asyncHandler =
 
 router.post('/start', asyncHandler(startInterview))
 router.post('/transcribe', asyncHandler(transcribeVoice))
+router.get('/summaries', asyncHandler(listSummaries))
 router.post('/:sessionId/message', asyncHandler(postMessage))
 router.post('/:sessionId/complete', asyncHandler(completeInterview))
-router.get('/:sessionId', getSession)
-router.get('/', listSessions)
+router.post('/:sessionId/summary', asyncHandler(saveSummary))
+router.get('/:sessionId', asyncHandler(getSession))
+router.get('/', asyncHandler(listSessions))
 
 export default router

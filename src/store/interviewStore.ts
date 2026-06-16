@@ -3,6 +3,7 @@ import type {
   Difficulty,
   InterviewSession,
   InterviewType,
+  QuestionSet,
 } from '../types/interview'
 import {
   completeInterview as completeInterviewApi,
@@ -11,13 +12,15 @@ import {
   sendInterviewMessage,
   startInterview,
 } from '../services/interviewApi'
+import { loadActiveBrowserSession, saveActiveBrowserSession } from '../services/browserSessionStorage'
+import { formatErrorMessage } from '../utils/errorMessage'
 
 type InterviewState = {
   currentSession: InterviewSession | null
   sessions: InterviewSession[]
   loading: boolean
   error: string | null
-  startInterview: (interviewType: InterviewType, difficulty: Difficulty) => Promise<InterviewSession | null>
+  startInterview: (interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet) => Promise<InterviewSession | null>
   sendAnswer: (message: string) => Promise<boolean>
   completeInterview: () => Promise<void>
   setCurrentSession: (session: InterviewSession | null) => void
@@ -26,20 +29,23 @@ type InterviewState = {
   loadSessions: () => Promise<void>
 }
 
+const browserSession = loadActiveBrowserSession()
+
 export const useInterviewStore = create<InterviewState>((set, get) => ({
-  currentSession: null,
-  sessions: [],
+  currentSession: browserSession,
+  sessions: browserSession ? [browserSession] : [],
   loading: false,
   error: null,
 
-  startInterview: async (interviewType, difficulty) => {
+  startInterview: async (interviewType, difficulty, questionSet) => {
     set({ loading: true, error: null })
     try {
-      const session = await startInterview(interviewType, difficulty)
+      const session = await startInterview(interviewType, difficulty, questionSet)
+      saveActiveBrowserSession(session)
       set({ currentSession: session, sessions: [session, ...get().sessions] })
       return session
     } catch (error) {
-      set({ error: (error as Error).message || 'Unable to start interview.' })
+      set({ error: formatErrorMessage(error, 'Unable to start interview.') })
       return null
     } finally {
       set({ loading: false })
@@ -56,6 +62,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const payload = await sendInterviewMessage(session.id, message)
+      saveActiveBrowserSession(payload.session)
       set((state) => ({
         currentSession: payload.session,
         sessions: state.sessions.map((item) =>
@@ -64,7 +71,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
       }))
       return true
     } catch (error) {
-      set({ error: (error as Error).message || 'Unable to send answer. Please retry.' })
+      set({ error: formatErrorMessage(error, 'Unable to send answer. Please retry.') })
       return false
     } finally {
       set({ loading: false })
@@ -80,6 +87,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const payload = await completeInterviewApi(session.id)
+      saveActiveBrowserSession(null)
       set((state) => ({
         currentSession: payload.session,
         sessions: state.sessions.map((item) =>
@@ -87,23 +95,30 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
         ),
       }))
     } catch (error) {
-      set({ error: (error as Error).message || 'Unable to complete interview.' })
+      set({ error: formatErrorMessage(error, 'Unable to complete interview.') })
     } finally {
       set({ loading: false })
     }
   },
 
-  setCurrentSession: (session) => set({ currentSession: session }),
+  setCurrentSession: (session) => {
+    saveActiveBrowserSession(session)
+    set({ currentSession: session })
+  },
 
-  resetInterview: () => set({ currentSession: null, error: null, loading: false }),
+  resetInterview: () => {
+    saveActiveBrowserSession(null)
+    set({ currentSession: null, error: null, loading: false })
+  },
 
   loadSession: async (sessionId) => {
     set({ loading: true, error: null })
     try {
       const session = await fetchInterviewSession(sessionId)
+      saveActiveBrowserSession(session)
       set({ currentSession: session, sessions: [session, ...get().sessions.filter((s) => s.id !== session.id)] })
     } catch (error) {
-      set({ error: (error as Error).message || 'Unable to load session.' })
+      set({ error: formatErrorMessage(error, 'Unable to load session.') })
     } finally {
       set({ loading: false })
     }
@@ -115,7 +130,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
       const sessions = await fetchInterviewSessions()
       set({ sessions })
     } catch (error) {
-      set({ error: (error as Error).message || 'Unable to load sessions.' })
+      set({ error: formatErrorMessage(error, 'Unable to load sessions.') })
     } finally {
       set({ loading: false })
     }

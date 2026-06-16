@@ -7,6 +7,7 @@ Interview Buddy is a React + TypeScript + Vite MVP that simulates a frontend int
 - Home, selection, interview room, results, and dashboard pages
 - Round 1, Round 2, and System Design practice modes
 - Beginner, Intermediate, and Advanced difficulty selection
+- Five question-set variants for every difficulty level
 - AI interviewer chat flow with follow-ups and one-question-at-a-time behavior
 - Backend-powered session storage with Express and OpenAI integration
 - Results scorecard with evaluation and recommended topics
@@ -17,6 +18,12 @@ Interview Buddy is a React + TypeScript + Vite MVP that simulates a frontend int
 
 ```bash
 cp server/.env.example server/.env
+```
+
+For Google sign-in, also copy the frontend environment placeholders:
+
+```bash
+cp .env.example .env
 ```
 
 2. Install dependencies:
@@ -44,6 +51,16 @@ cd .. && npm run dev
 
 The Gemini API key is loaded from `server/.env` as `GEMINI_API_KEY`.
 
+Interview sessions are persisted to Firestore when Firebase Admin credentials are configured. For local development, copy `server/.env.example` to `server/.env` and fill one of these credential options:
+
+- `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY`
+- `FIREBASE_SERVICE_ACCOUNT_JSON`
+- `FIREBASE_SERVICE_ACCOUNT_BASE64`
+
+On Vercel, add the same values in Project Settings > Environment Variables. If Firebase credentials are not configured, the backend falls back to in-memory sessions.
+
+The frontend Firebase web config is loaded from `VITE_FIREBASE_*` environment variables. These values enable Google sign-in in the browser. The private Firebase Admin credentials stay server-side only.
+
 ## Backend endpoints
 
 - `POST /api/interviews/start`
@@ -54,6 +71,6 @@ The Gemini API key is loaded from `server/.env` as `GEMINI_API_KEY`.
 
 ## Notes
 
-- The OpenAI API key is loaded from `server/.env`
-- Sessions are stored in memory for MVP simplicity
+- The Gemini API key is loaded from `server/.env`
+- Firestore stores interview sessions when Firebase Admin credentials are configured
 - Tailwind CSS is used for a dark, modern UI

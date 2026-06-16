@@ -1,4 +1,4 @@
-import type { Difficulty, InterviewType } from '../../server/src/types/interview'
+import type { Difficulty, InterviewType, QuestionSet } from '../../server/src/types/interview'
 import { HttpError, startInterviewSession } from '../../server/src/services/interviewSessionService'
 
 type ApiRequest = {
@@ -6,6 +6,7 @@ type ApiRequest = {
   body?: {
     interviewType?: InterviewType
     difficulty?: Difficulty
+    questionSet?: QuestionSet
   }
 }
 
@@ -28,7 +29,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    const session = await startInterviewSession(req.body?.interviewType, req.body?.difficulty)
+    const session = await startInterviewSession(req.body?.interviewType, req.body?.difficulty, req.body?.questionSet)
     return res.status(201).json({ session })
   } catch (error) {
     return sendError(res, error)

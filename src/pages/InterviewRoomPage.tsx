@@ -9,6 +9,7 @@ import { ProblemStatement } from '../components/interview/ProblemStatement'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Loader } from '../components/ui/Loader'
+import { saveInterviewSummary } from '../services/interviewApi'
 
 export default function InterviewRoomPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -69,6 +70,32 @@ export default function InterviewRoomPage() {
       window.speechSynthesis?.cancel()
     }
   }, [])
+
+  useEffect(() => {
+    if (!currentSession || currentSession.status !== 'ACTIVE') return undefined
+
+    const saveQuitSummary = () => {
+      void saveInterviewSummary(currentSession.id, 'QUIT', { keepalive: true })
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      saveQuitSummary()
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    const handlePageHide = () => {
+      saveQuitSummary()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('pagehide', handlePageHide)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', handlePageHide)
+    }
+  }, [currentSession])
 
   if (!sessionId) {
     return <p className="text-slate-300">Invalid interview session.</p>

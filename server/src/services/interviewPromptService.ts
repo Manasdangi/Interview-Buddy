@@ -1,4 +1,4 @@
-import type { Difficulty, InterviewMessage, InterviewType } from '../types/interview'
+import type { DailyQuestionVariant, Difficulty, InterviewMessage, InterviewType, QuestionSet } from '../types/interview'
 
 const questionCounts = {
   ROUND_1: 5,
@@ -6,11 +6,22 @@ const questionCounts = {
   SYSTEM_DESIGN: 5,
 }
 
-export function createInterviewPrompt(interviewType: InterviewType, difficulty: Difficulty, chatHistory: InterviewMessage[]) {
+function formatTopicPath(variant: DailyQuestionVariant) {
+  return variant.topicPath.map((topic, index) => `${index + 1}. ${topic}`).join('\n')
+}
+
+export function createInterviewPrompt(interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet, dailyVariant: DailyQuestionVariant, chatHistory: InterviewMessage[]) {
   const maxQuestions = questionCounts[interviewType]
   const history = chatHistory
     .map((message) => `${message.role === 'AI' ? 'Interviewer' : 'Candidate'}: ${message.content}`)
     .join('\n')
+  const setInstruction = `Question set: ${questionSet} of 5.
+Daily variant date: ${dailyVariant.questionDate}.
+Daily variant key: ${dailyVariant.dailySeed}.
+Today's topic path:
+${formatTopicPath(dailyVariant)}
+
+Use the topic path as the source of today's questions. The same track, difficulty, set, and date should follow this same path. A different date should produce a different path. Ask one topic at a time in order, adapt follow-ups to the candidate, and do not mention the set number, variant key, or daily path to the candidate.`
 
   const basePrompt = {
     ROUND_1: `You are a senior frontend interviewer conducting Round 1 for a frontend developer.
@@ -33,6 +44,8 @@ Rules:
 - Maximum questions: ${maxQuestions}.
 
 Interview difficulty: ${difficulty}
+
+${setInstruction}
 
 Conversation so far:
 ${history}
@@ -62,6 +75,8 @@ Rules:
 - Maximum questions: ${maxQuestions}.
 
 Interview difficulty: ${difficulty}
+
+${setInstruction}
 
 Conversation so far:
 ${history}
@@ -105,6 +120,8 @@ Rules:
 
 Interview difficulty: ${difficulty}
 
+${setInstruction}
+
 Conversation so far:
 ${history}
 
@@ -115,7 +132,7 @@ Return only the next interviewer message.
   return basePrompt[interviewType]
 }
 
-export function buildScorecardPrompt(interviewType: InterviewType, difficulty: Difficulty, chatHistory: InterviewMessage[]) {
+export function buildScorecardPrompt(interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet, dailyVariant: DailyQuestionVariant, chatHistory: InterviewMessage[]) {
   const history = chatHistory
     .map((message) => `${message.role === 'AI' ? 'Interviewer' : 'Candidate'}: ${message.content}`)
     .join('\n')
@@ -127,6 +144,13 @@ Evaluate this interview.
 Interview type: ${interviewType}
 
 Difficulty: ${difficulty}
+
+Question set: ${questionSet}
+
+Daily variant date: ${dailyVariant.questionDate}
+
+Daily topic path:
+${formatTopicPath(dailyVariant)}
 
 Conversation:
 ${history}

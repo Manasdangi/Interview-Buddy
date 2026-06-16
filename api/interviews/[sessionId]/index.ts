@@ -23,14 +23,14 @@ function sendError(res: ApiResponse, error: unknown) {
   res.status(statusCode).json({ error: message })
 }
 
-export default function handler(req: ApiRequest, res: ApiResponse) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET')
     return res.status(405).json({ error: 'Method not allowed.' })
   }
 
   try {
-    const session = getInterviewSession(getParam(req.query?.sessionId))
+    const session = await getInterviewSession(getParam(req.query?.sessionId))
     return res.status(200).json({ session })
   } catch (error) {
     return sendError(res, error)
