@@ -12,8 +12,8 @@ import {
   startInterviewSession,
   transcribeVoiceAudio,
 } from '../services/interviewSessionService'
-import { listSummariesForUser, saveSummaryForCompletedSession, saveSummaryForSession } from '../services/interviewSummaryService'
-import type { InterviewExitReason } from '../types/interview'
+import { listSummariesForUser, saveSummaryForCompletedSession, saveSummaryForSessionSnapshot } from '../services/interviewSummaryService'
+import type { InterviewExitReason, InterviewSession } from '../types/interview'
 
 export async function startInterview(req: Request, res: Response) {
   const { interviewType, difficulty, questionSet } = req.body as { interviewType?: InterviewType; difficulty?: Difficulty; questionSet?: QuestionSet }
@@ -48,8 +48,8 @@ export async function listSessions(_req: Request, res: Response) {
 
 export async function saveSummary(req: Request, res: Response) {
   const { sessionId } = req.params
-  const { exitReason = 'QUIT' } = req.body as { exitReason?: InterviewExitReason }
-  const summary = await saveSummaryForSession(sessionId, req.headers.authorization, exitReason)
+  const { exitReason = 'QUIT', session } = req.body as { exitReason?: InterviewExitReason; session?: InterviewSession }
+  const summary = await saveSummaryForSessionSnapshot(sessionId, req.headers.authorization, exitReason, session)
   return res.status(200).json({ summary })
 }
 

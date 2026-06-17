@@ -81,6 +81,29 @@ export async function saveSummaryForSession(sessionId: string | undefined, autho
   return summary
 }
 
+export async function saveSummaryForSessionSnapshot(
+  sessionId: string | undefined,
+  authorization: string | undefined,
+  exitReason: InterviewExitReason,
+  sessionSnapshot?: InterviewSession,
+) {
+  if (!sessionId) {
+    throw new AuthError(400, 'sessionId is required.')
+  }
+
+  const uid = await requireUserId(authorization)
+  const storedSession = await getStoredInterviewSession(sessionId)
+  const session = storedSession ?? (sessionSnapshot?.id === sessionId ? sessionSnapshot : null)
+
+  if (!session) {
+    throw new AuthError(404, 'Session not found. Please start a new interview.')
+  }
+
+  const summary = buildInterviewSummary(session, uid, exitReason)
+  await saveInterviewSummary(summary)
+  return summary
+}
+
 export async function saveSummaryForCompletedSession(session: InterviewSession, authorization?: string) {
   const token = getBearerToken(authorization)
   if (!token) return null

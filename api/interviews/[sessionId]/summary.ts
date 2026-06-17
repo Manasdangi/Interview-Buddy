@@ -1,6 +1,6 @@
-import type { InterviewExitReason } from '../../../server/src/types/interview'
+import type { InterviewExitReason, InterviewSession } from '../../../server/src/types/interview'
 import { HttpError } from '../../../server/src/services/interviewSessionService'
-import { saveSummaryForSession } from '../../../server/src/services/interviewSummaryService'
+import { saveSummaryForSessionSnapshot } from '../../../server/src/services/interviewSummaryService'
 
 type ApiRequest = {
   method?: string
@@ -12,6 +12,7 @@ type ApiRequest = {
   }
   body?: {
     exitReason?: InterviewExitReason
+    session?: InterviewSession
   }
 }
 
@@ -38,7 +39,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    const summary = await saveSummaryForSession(getParam(req.query?.sessionId), req.headers?.authorization, req.body?.exitReason ?? 'QUIT')
+    const summary = await saveSummaryForSessionSnapshot(
+      getParam(req.query?.sessionId),
+      req.headers?.authorization,
+      req.body?.exitReason ?? 'QUIT',
+      req.body?.session,
+    )
     return res.status(200).json({ summary })
   } catch (error) {
     return sendError(res, error)

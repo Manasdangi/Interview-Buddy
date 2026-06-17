@@ -14,29 +14,55 @@ import { saveInterviewSummary } from '../services/interviewApi'
 export default function InterviewRoomPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
-  const { currentSession, loading, error, loadSession, sendAnswer, completeInterview } = useInterviewStore()
+  const { currentSession, loading, error, loadSession, sendAnswer, completeInterview, resetInterview } = useInterviewStore()
   const [pendingVoiceTranscript, setPendingVoiceTranscript] = useState<string | null>(null)
   const [voiceReplies, setVoiceReplies] = useState(true)
   const controlsRef = useRef<HTMLDivElement | null>(null)
   const lastAutoScrolledMessageIdRef = useRef<string | null>(null)
   const lastSpokenMessageIdRef = useRef<string | null>(null)
+  const allowBrowserBackRef = useRef(false)
+  const exitInProgressRef = useRef(false)
+  const historyGuardArmedRef = useRef(false)
+  const hasActiveInterview = currentSession?.status === 'ACTIVE'
+
+  const saveQuitSummary = async () => {
+    if (!currentSession || currentSession.status !== 'ACTIVE') return
+    await saveInterviewSummary(currentSession.id, 'QUIT', {
+      keepalive: true,
+      session: currentSession,
+    })
+  }
 
   const stopSpeech = () => {
     window.speechSynthesis?.cancel()
   }
 
+  const confirmExitInterview = async () => {
+    if (!hasActiveInterview) return true
+
+    const shouldLeave = window.confirm('If you leave this screen, you will lose your interview progress.')
+    if (!shouldLeave) return false
+
+    exitInProgressRef.current = true
+    stopSpeech()
+    await saveQuitSummary()
+    resetInterview()
+    return true
+  }
+
   useEffect(() => {
     if (!sessionId) return
+    if (exitInProgressRef.current) return
     if (!currentSession || currentSession.id !== sessionId) {
       loadSession(sessionId)
     }
-  }, [sessionId])
+  }, [currentSession, loadSession, sessionId])
 
   useEffect(() => {
     if (currentSession?.status === 'COMPLETED') {
       navigate(`/results/${currentSession.id}`)
     }
-  }, [currentSession?.status])
+  }, [currentSession?.id, currentSession?.status, navigate])
 
   useEffect(() => {
     if (!voiceReplies || typeof window === 'undefined' || !window.speechSynthesis) return
@@ -72,20 +98,16 @@ export default function InterviewRoomPage() {
   }, [])
 
   useEffect(() => {
-    if (!currentSession || currentSession.status !== 'ACTIVE') return undefined
-
-    const saveQuitSummary = () => {
-      void saveInterviewSummary(currentSession.id, 'QUIT', { keepalive: true })
-    }
+    if (!hasActiveInterview) return undefined
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      saveQuitSummary()
+      void saveQuitSummary()
       event.preventDefault()
       event.returnValue = ''
     }
 
     const handlePageHide = () => {
-      saveQuitSummary()
+      void saveQuitSummary()
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -95,7 +117,67 @@ export default function InterviewRoomPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('pagehide', handlePageHide)
     }
-  }, [currentSession])
+  }, [currentSession, hasActiveInterview])
+
+  useEffect(() => {
+    if (!hasActiveInterview || typeof window === 'undefined') return undefined
+
+    if (!historyGuardArmedRef.current) {
+      window.history.pushState({ interviewGuard: true }, '', window.location.href)
+      historyGuardArmedRef.current = true
+    }
+
+    const handlePopState = async () => {
+      if (allowBrowserBackRef.current) {
+        allowBrowserBackRef.current = false
+        return
+      }
+
+      if (!(await confirmExitInterview())) {
+        window.history.pushState({ interviewGuard: true }, '', window.location.href)
+        return
+      }
+
+      allowBrowserBackRef.current = true
+      window.history.back()
+    }
+
+    const handleDocumentClick = async (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+
+      const target = event.target
+      if (!(target instanceof Element)) return
+
+      const link = target.closest('a[href]')
+      if (!(link instanceof HTMLAnchorElement)) return
+      if (link.target && link.target !== '_self') return
+      if (link.hasAttribute('download')) return
+
+      const nextUrl = new URL(link.href, window.location.href)
+      const currentUrl = new URL(window.location.href)
+      if (nextUrl.origin !== currentUrl.origin) return
+
+      const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+      const currentPath = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
+      if (nextPath === currentPath) return
+
+      event.preventDefault()
+
+      if (await confirmExitInterview()) {
+        navigate(nextPath)
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    document.addEventListener('click', handleDocumentClick, true)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      document.removeEventListener('click', handleDocumentClick, true)
+      historyGuardArmedRef.current = false
+      allowBrowserBackRef.current = false
+    }
+  }, [currentSession, hasActiveInterview, navigate, resetInterview])
 
   if (!sessionId) {
     return <p className="text-slate-300">Invalid interview session.</p>
@@ -156,7 +238,14 @@ export default function InterviewRoomPage() {
                 <VolumeX className="h-4 w-4" />
                 Stop speech
               </Button>
-              <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  if (await confirmExitInterview()) {
+                    navigate('/dashboard')
+                  }
+                }}
+              >
                 Back to dashboard
               </Button>
             </div>

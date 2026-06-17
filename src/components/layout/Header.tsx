@@ -1,7 +1,9 @@
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { LogIn, LogOut } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
+import { useInterviewStore } from '../../store/interviewStore'
+import { saveInterviewSummary } from '../../services/interviewApi'
 import { cn } from '../../utils/cn'
 import { Button } from '../ui/Button'
 
@@ -10,12 +12,44 @@ const navItems = [
   { label: 'Dashboard', to: '/dashboard' },
 ]
 
+function getAvatarLabel(name: string | null, email: string | null) {
+  const source = (name || email || 'User').trim()
+  const parts = source.split(/\s+/).filter(Boolean)
+
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase()
+  }
+
+  return source.slice(0, 2).toUpperCase()
+}
+
 export function Header() {
   const { authEnabled, authError, authReady, initAuth, signInWithGoogle, signOutUser, user } = useAuthStore()
+  const { currentSession, resetInterview } = useInterviewStore()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null)
+  const isActiveInterviewRoute = location.pathname.startsWith('/interview/')
+  const hasActiveInterview = isActiveInterviewRoute && currentSession?.status === 'ACTIVE'
 
   useEffect(() => {
     initAuth()
   }, [initAuth])
+
+  const showPhoto = Boolean(user?.photoURL && user.photoURL !== failedPhotoUrl)
+
+  const handleSignOut = async () => {
+    if (hasActiveInterview && currentSession) {
+      const shouldLeave = window.confirm('If you sign out now, you will lose your interview progress.')
+      if (!shouldLeave) return
+
+      await saveInterviewSummary(currentSession.id, 'QUIT', { session: currentSession })
+      resetInterview()
+      navigate('/dashboard')
+    }
+
+    await signOutUser()
+  }
 
   return (
     <header className="border-b border-slate-800/70 bg-slate-950/95 backdrop-blur-xl">
@@ -42,10 +76,22 @@ export function Header() {
             {user ? (
               <>
                 <div className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-200 sm:flex">
-                  {user.photoURL ? <img src={user.photoURL} alt="" className="h-6 w-6 rounded-full" /> : null}
+                  {showPhoto ? (
+                    <img
+                      src={user.photoURL!}
+                      alt={`${user.displayName || user.email || 'User'} profile`}
+                      className="h-6 w-6 shrink-0 rounded-full object-cover"
+                      referrerPolicy="no-referrer"
+                      onError={() => setFailedPhotoUrl(user.photoURL)}
+                    />
+                  ) : (
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] font-semibold text-slate-200">
+                      {getAvatarLabel(user.displayName, user.email)}
+                    </div>
+                  )}
                   <span className="max-w-[140px] truncate">{user.displayName || user.email || 'Signed in'}</span>
                 </div>
-                <Button type="button" variant="secondary" className="gap-2 px-4 py-2" onClick={signOutUser}>
+                <Button type="button" variant="secondary" className="gap-2 px-4 py-2" onClick={handleSignOut}>
                   <LogOut className="h-4 w-4" />
                   Sign out
                 </Button>

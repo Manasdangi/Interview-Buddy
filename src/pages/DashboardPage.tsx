@@ -31,7 +31,7 @@ export default function DashboardPage() {
       <div className="rounded-[2rem] border border-slate-800/80 bg-slate-950/90 p-8 shadow-soft">
         <h1 className="text-4xl font-semibold text-white">Dashboard</h1>
         <p className="mt-3 text-slate-400">
-          {user ? 'Review your saved interview summaries.' : 'Continue the active interview saved in this browser tab.'}
+          {user ? 'Review your interview history, including completed and quit sessions.' : 'Continue the active interview saved in this browser tab.'}
         </p>
       </div>
 
@@ -68,7 +68,7 @@ export default function DashboardPage() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <p className="text-slate-400">Answered: {summary.questionsAnswered} / {summary.maxQuestions}</p>
                   <p className="text-slate-400">Asked: {summary.questionsAsked} / {summary.maxQuestions}</p>
-                  <p className="text-slate-400">Ended: {new Date(summary.endedAt).toLocaleDateString()}</p>
+                  <p className="text-slate-400">Ended: {new Date(summary.endedAt).toLocaleString()}</p>
                 </div>
               </Card>
             ))

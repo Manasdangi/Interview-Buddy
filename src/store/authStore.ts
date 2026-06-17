@@ -66,7 +66,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   signInWithGoogle: async () => {
     const auth = getFirebaseAuthClient()
     if (!auth) {
-      set({ authError: 'Firebase web configuration is missing.' })
+      set({ authError: 'Firebase sign-in is not configured. Add VITE_FIREBASE_* values to .env.local and restart the dev server.' })
       return
     }
 

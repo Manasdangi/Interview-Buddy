@@ -92,7 +92,11 @@ export const transcribeVoice = async (audioBase64: string, mimeType: string) => 
   return response.data.transcript
 }
 
-export const saveInterviewSummary = async (sessionId: string, exitReason: InterviewExitReason, options?: { keepalive?: boolean }) => {
+export const saveInterviewSummary = async (
+  sessionId: string,
+  exitReason: InterviewExitReason,
+  options?: { keepalive?: boolean; session?: InterviewSession },
+) => {
   const token = getAuthToken()
   if (!token) return null
 
@@ -103,7 +107,10 @@ export const saveInterviewSummary = async (sessionId: string, exitReason: Interv
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ exitReason }),
+    body: JSON.stringify({
+      exitReason,
+      session: options?.session,
+    }),
     keepalive: options?.keepalive,
   })
 
