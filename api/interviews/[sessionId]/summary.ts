@@ -1,6 +1,6 @@
-import type { InterviewExitReason, InterviewSession } from '../../../server/src/types/interview'
-import { HttpError } from '../../../server/src/services/interviewSessionService'
-import { saveSummaryForSessionSnapshot } from '../../../server/src/services/interviewSummaryService'
+import type { InterviewExitReason, InterviewSession } from '../../../server/src/types/interview.js'
+import { HttpError } from '../../../server/src/services/interviewSessionService.js'
+import { saveSummaryForSessionSnapshot } from '../../../server/src/services/interviewSummaryService.js'
 
 type ApiRequest = {
   method?: string

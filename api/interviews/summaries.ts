@@ -1,5 +1,5 @@
-import { HttpError } from '../../server/src/services/interviewSessionService'
-import { listSummariesForUser } from '../../server/src/services/interviewSummaryService'
+import { HttpError } from '../../server/src/services/interviewSessionService.js'
+import { listSummariesForUser } from '../../server/src/services/interviewSummaryService.js'
 
 type ApiRequest = {
   method?: string

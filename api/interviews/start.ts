@@ -1,5 +1,5 @@
-import type { Difficulty, InterviewType, QuestionSet } from '../../server/src/types/interview'
-import { HttpError, startInterviewSession } from '../../server/src/services/interviewSessionService'
+import type { Difficulty, InterviewType, QuestionSet } from '../../server/src/types/interview.js'
+import { HttpError, startInterviewSession } from '../../server/src/services/interviewSessionService.js'
 
 type ApiRequest = {
   method?: string

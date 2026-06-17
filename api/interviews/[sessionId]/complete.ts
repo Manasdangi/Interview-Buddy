@@ -1,5 +1,5 @@
-import { completeInterviewSession, HttpError } from '../../../server/src/services/interviewSessionService'
-import { saveSummaryForCompletedSession } from '../../../server/src/services/interviewSummaryService'
+import { completeInterviewSession, HttpError } from '../../../server/src/services/interviewSessionService.js'
+import { saveSummaryForCompletedSession } from '../../../server/src/services/interviewSummaryService.js'
 
 type ApiRequest = {
   method?: string

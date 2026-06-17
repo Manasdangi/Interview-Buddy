@@ -1,4 +1,4 @@
-import { addInterviewMessage, HttpError } from '../../../server/src/services/interviewSessionService'
+import { addInterviewMessage, HttpError } from '../../../server/src/services/interviewSessionService.js'
 
 type ApiRequest = {
   method?: string
