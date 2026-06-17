@@ -23,7 +23,7 @@ async function requireUserId(authorization?: string) {
     throw new AuthError(401, 'Sign in is required to save interview history.')
   }
 
-  const auth = getFirebaseAuth()
+  const auth = await getFirebaseAuth()
   if (!auth) {
     throw new AuthError(500, 'Firebase Admin credentials are required to save interview history.')
   }

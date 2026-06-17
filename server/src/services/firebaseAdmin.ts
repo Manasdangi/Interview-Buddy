@@ -1,5 +1,4 @@
 import { applicationDefault, cert, getApps, initializeApp } from 'firebase-admin/app'
-import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
 type FirebaseServiceAccount = {
@@ -76,7 +75,12 @@ export function getFirestoreDb() {
   return app ? getFirestore(app) : null
 }
 
-export function getFirebaseAuth() {
+export async function getFirebaseAuth() {
   const app = getFirebaseAdminApp()
-  return app ? getAuth(app) : null
+  if (!app) {
+    return null
+  }
+
+  const { getAuth } = await import('firebase-admin/auth')
+  return getAuth(app)
 }
