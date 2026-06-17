@@ -1,5 +1,5 @@
-import type { InterviewSession, InterviewSummary } from '../types/interview'
-import { getFirestoreDb } from './firebaseAdmin'
+import type { InterviewSession, InterviewSummary } from '../types/interview.js'
+import { getFirestoreDb } from './firebaseAdmin.js'
 
 const memorySessions = new Map<string, InterviewSession>()
 const memorySummaries = new Map<string, InterviewSummary[]>()

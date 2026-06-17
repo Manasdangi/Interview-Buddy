@@ -1,4 +1,4 @@
-import type { DailyQuestionVariant, Difficulty, InterviewMessage, InterviewType, QuestionSet } from '../types/interview'
+import type { DailyQuestionVariant, Difficulty, InterviewMessage, InterviewType, QuestionSet } from '../types/interview.js'
 
 const questionCounts = {
   ROUND_1: 5,

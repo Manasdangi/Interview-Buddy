@@ -3,7 +3,7 @@ import type {
   Difficulty,
   InterviewType,
   QuestionSet,
-} from '../types/interview'
+} from '../types/interview.js'
 import {
   addInterviewMessage,
   completeInterviewSession,
@@ -11,9 +11,9 @@ import {
   listInterviewSessions,
   startInterviewSession,
   transcribeVoiceAudio,
-} from '../services/interviewSessionService'
-import { listSummariesForUser, saveSummaryForCompletedSession, saveSummaryForSessionSnapshot } from '../services/interviewSummaryService'
-import type { InterviewExitReason, InterviewSession } from '../types/interview'
+} from '../services/interviewSessionService.js'
+import { listSummariesForUser, saveSummaryForCompletedSession, saveSummaryForSessionSnapshot } from '../services/interviewSummaryService.js'
+import type { InterviewExitReason, InterviewSession } from '../types/interview.js'
 
 export async function startInterview(req: Request, res: Response) {
   const { interviewType, difficulty, questionSet } = req.body as { interviewType?: InterviewType; difficulty?: Difficulty; questionSet?: QuestionSet }

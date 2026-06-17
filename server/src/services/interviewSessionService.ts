@@ -4,12 +4,12 @@ import type {
   InterviewSession,
   InterviewType,
   QuestionSet,
-} from '../types/interview'
-import { createAiResponse, transcribeAudio } from './openaiService'
-import { buildScorecardPrompt, createInterviewPrompt } from './interviewPromptService'
-import { createId } from '../utils/id'
-import { getStoredInterviewSession, listStoredInterviewSessions, saveInterviewSession } from './interviewSessionRepository'
-import { getDailyQuestionVariant } from './dailyQuestionVariantService'
+} from '../types/interview.js'
+import { createAiResponse, transcribeAudio } from './openaiService.js'
+import { buildScorecardPrompt, createInterviewPrompt } from './interviewPromptService.js'
+import { createId } from '../utils/id.js'
+import { getStoredInterviewSession, listStoredInterviewSessions, saveInterviewSession } from './interviewSessionRepository.js'
+import { getDailyQuestionVariant } from './dailyQuestionVariantService.js'
 
 export class HttpError extends Error {
   statusCode: number

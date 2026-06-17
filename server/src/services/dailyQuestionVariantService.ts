@@ -1,4 +1,4 @@
-import type { DailyQuestionVariant, Difficulty, InterviewType, QuestionSet } from '../types/interview'
+import type { DailyQuestionVariant, Difficulty, InterviewType, QuestionSet } from '../types/interview.js'
 
 const defaultTimeZone = 'Asia/Kolkata'
 

@@ -9,7 +9,7 @@ import {
   saveSummary,
   startInterview,
   transcribeVoice,
-} from '../controllers/interviewController'
+} from '../controllers/interviewController.js'
 
 const router = Router()
 

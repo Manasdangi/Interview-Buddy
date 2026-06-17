@@ -1,6 +1,6 @@
-import { getFirebaseAuth } from './firebaseAdmin'
-import { getStoredInterviewSession, listInterviewSummaries, saveInterviewSummary } from './interviewSessionRepository'
-import type { InterviewExitReason, InterviewSession, InterviewSummary } from '../types/interview'
+import { getFirebaseAuth } from './firebaseAdmin.js'
+import { getStoredInterviewSession, listInterviewSummaries, saveInterviewSummary } from './interviewSessionRepository.js'
+import type { InterviewExitReason, InterviewSession, InterviewSummary } from '../types/interview.js'
 
 export class AuthError extends Error {
   statusCode: number
