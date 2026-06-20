@@ -1,4 +1,3 @@
-import { getFirebaseAuth } from './firebaseAdmin.js'
 import { getStoredInterviewSession, listInterviewSummaries, saveInterviewSummary } from './interviewSessionRepository.js'
 import type { InterviewExitReason, InterviewSession, InterviewSummary } from '../types/interview.js'
 
@@ -23,13 +22,35 @@ async function requireUserId(authorization?: string) {
     throw new AuthError(401, 'Sign in is required to save interview history.')
   }
 
-  const auth = await getFirebaseAuth()
-  if (!auth) {
-    throw new AuthError(500, 'Firebase Admin credentials are required to save interview history.')
+  const apiKey = process.env.FIREBASE_WEB_API_KEY || process.env.VITE_FIREBASE_API_KEY
+  if (!apiKey) {
+    throw new AuthError(500, 'Firebase web API key is required to save interview history.')
   }
 
-  const decoded = await auth.verifyIdToken(token)
-  return decoded.uid
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ idToken: token }),
+  })
+
+  if (!response.ok) {
+    throw new AuthError(401, 'Your sign-in session is invalid or expired. Please sign in again.')
+  }
+
+  const payload = (await response.json()) as {
+    users?: Array<{
+      localId?: string
+    }>
+  }
+
+  const uid = payload.users?.[0]?.localId
+  if (!uid) {
+    throw new AuthError(401, 'Unable to verify the signed-in user.')
+  }
+
+  return uid
 }
 
 function getQuestionsAnswered(session: InterviewSession) {
