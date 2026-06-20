@@ -8,6 +8,10 @@ export type MessageRole = 'AI' | 'USER'
 
 export type InterviewStatus = 'ACTIVE' | 'COMPLETED'
 
+export type AnswerQuality = 'UNKNOWN' | 'WEAK' | 'MODERATE' | 'STRONG'
+
+export type DifficultyTrend = 'STEADY' | 'EASING' | 'RISING'
+
 export type InterviewMessage = {
   id: string
   role: MessageRole
@@ -34,6 +38,17 @@ export type DailyQuestionVariant = {
   topicPath: string[]
 }
 
+export type InterviewState = {
+  questionNumber: number
+  askedTopics: string[]
+  candidateStrengths: string[]
+  candidateWeakAreas: string[]
+  difficultyTrend: DifficultyTrend
+  lastQuestionTopic: string | null
+  lastAnswerQuality: AnswerQuality
+  recentAnswerQualities: AnswerQuality[]
+}
+
 export type InterviewSession = {
   id: string
   interviewType: InterviewType
@@ -44,6 +59,7 @@ export type InterviewSession = {
   messages: InterviewMessage[]
   currentQuestionCount: number
   maxQuestions: number
+  interviewState: InterviewState
   startedAt: string
   completedAt?: string
   scorecard?: InterviewScorecard

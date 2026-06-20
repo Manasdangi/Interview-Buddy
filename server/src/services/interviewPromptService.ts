@@ -1,4 +1,11 @@
-import type { DailyQuestionVariant, Difficulty, InterviewMessage, InterviewType, QuestionSet } from '../types/interview.js'
+import type {
+  DailyQuestionVariant,
+  Difficulty,
+  InterviewMessage,
+  InterviewSession,
+  InterviewType,
+  QuestionSet,
+} from '../types/interview.js'
 
 const questionCounts = {
   ROUND_1: 5,
@@ -10,11 +17,56 @@ function formatTopicPath(variant: DailyQuestionVariant) {
   return variant.topicPath.map((topic, index) => `${index + 1}. ${topic}`).join('\n')
 }
 
-export function createInterviewPrompt(interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet, dailyVariant: DailyQuestionVariant, chatHistory: InterviewMessage[]) {
-  const maxQuestions = questionCounts[interviewType]
-  const history = chatHistory
-    .map((message) => `${message.role === 'AI' ? 'Interviewer' : 'Candidate'}: ${message.content}`)
-    .join('\n')
+function compactText(text: string, limit: number) {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= limit) return normalized
+  return `${normalized.slice(0, limit - 1).trimEnd()}...`
+}
+
+function getLatestInterviewerQuestion(chatHistory: InterviewMessage[]) {
+  for (let index = chatHistory.length - 1; index >= 0; index -= 1) {
+    if (chatHistory[index]?.role === 'AI') {
+      return compactText(chatHistory[index].content, 280)
+    }
+  }
+
+  return 'No interviewer question has been asked yet.'
+}
+
+function getLatestCandidateAnswer(chatHistory: InterviewMessage[]) {
+  for (let index = chatHistory.length - 1; index >= 0; index -= 1) {
+    if (chatHistory[index]?.role === 'USER') {
+      return compactText(chatHistory[index].content, 280)
+    }
+  }
+
+  return 'No candidate answer yet.'
+}
+
+function formatStructuredState(session: InterviewSession) {
+  const state = session.interviewState
+
+  return `Structured interview state:
+{
+  "interviewType": "${session.interviewType}",
+  "difficulty": "${session.difficulty}",
+  "questionSet": ${session.questionSet ?? 1},
+  "questionNumber": ${state.questionNumber},
+  "askedTopics": ${JSON.stringify(state.askedTopics)},
+  "candidateStrengths": ${JSON.stringify(state.candidateStrengths)},
+  "candidateWeakAreas": ${JSON.stringify(state.candidateWeakAreas)},
+  "difficultyTrend": "${state.difficultyTrend}",
+  "lastQuestionTopic": ${JSON.stringify(state.lastQuestionTopic)},
+  "lastAnswerQuality": "${state.lastAnswerQuality}"
+}`
+}
+
+export function createInterviewPrompt(
+  session: InterviewSession,
+  questionSet: QuestionSet,
+  dailyVariant: DailyQuestionVariant,
+) {
+  const maxQuestions = questionCounts[session.interviewType]
   const setInstruction = `Question set: ${questionSet} of 5.
 Daily variant date: ${dailyVariant.questionDate}.
 Daily variant key: ${dailyVariant.dailySeed}.
@@ -22,6 +74,10 @@ Today's topic path:
 ${formatTopicPath(dailyVariant)}
 
 Use the topic path as the source of today's questions. The same track, difficulty, set, and date should follow this same path. A different date should produce a different path. Ask one topic at a time in order, adapt follow-ups to the candidate, and do not mention the set number, variant key, or daily path to the candidate.`
+
+  const compactExchange = `Latest exchange:
+- Latest interviewer question: ${getLatestInterviewerQuestion(session.messages)}
+- Latest candidate answer: ${getLatestCandidateAnswer(session.messages)}`
 
   const basePrompt = {
     ROUND_1: `You are a senior frontend interviewer conducting Round 1 for a frontend developer.
@@ -41,14 +97,16 @@ Rules:
 - Keep tone professional.
 - If answer is weak, ask a hint-based follow-up.
 - If answer is strong, ask a deeper follow-up.
+- Keep the interviewer reply concise: 2-5 sentences unless a code snippet is necessary.
 - Maximum questions: ${maxQuestions}.
 
-Interview difficulty: ${difficulty}
+Interview difficulty: ${session.difficulty}
 
 ${setInstruction}
 
-Conversation so far:
-${history}
+${formatStructuredState(session)}
+
+${compactExchange}
 
 Return only the next interviewer message.
 `,
@@ -72,14 +130,16 @@ Rules:
 - Do not give complete answers.
 - Challenge assumptions.
 - Evaluate trade-offs.
+- Keep the interviewer reply concise: 2-5 sentences unless a code snippet is necessary.
 - Maximum questions: ${maxQuestions}.
 
-Interview difficulty: ${difficulty}
+Interview difficulty: ${session.difficulty}
 
 ${setInstruction}
 
-Conversation so far:
-${history}
+${formatStructuredState(session)}
+
+${compactExchange}
 
 Return only the next interviewer message.
 `,
@@ -116,30 +176,38 @@ Rules:
 - Then edge cases.
 - Do not reveal full solution.
 - Ask follow-ups based on user answer.
+- Keep the interviewer reply concise: 2-5 sentences unless a diagram substitute or bullet list is necessary.
 - Maximum questions: ${maxQuestions}.
 
-Interview difficulty: ${difficulty}
+Interview difficulty: ${session.difficulty}
 
 ${setInstruction}
 
-Conversation so far:
-${history}
+${formatStructuredState(session)}
+
+${compactExchange}
 
 Return only the next interviewer message.
 `,
   }
 
-  return basePrompt[interviewType]
+  return basePrompt[session.interviewType]
 }
 
-export function buildScorecardPrompt(interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet, dailyVariant: DailyQuestionVariant, chatHistory: InterviewMessage[]) {
+export function buildScorecardPrompt(
+  interviewType: InterviewType,
+  difficulty: Difficulty,
+  questionSet: QuestionSet,
+  dailyVariant: DailyQuestionVariant,
+  chatHistory: InterviewMessage[],
+) {
   const history = chatHistory
     .map((message) => `${message.role === 'AI' ? 'Interviewer' : 'Candidate'}: ${message.content}`)
     .join('\n')
 
   return `You are an expert frontend interview evaluator.
 
-Evaluate this interview.
+Evaluate this interview and return compact JSON only.
 
 Interview type: ${interviewType}
 
@@ -155,7 +223,7 @@ ${formatTopicPath(dailyVariant)}
 Conversation:
 ${history}
 
-Return valid JSON only in this exact shape:
+Return valid JSON only in this exact shape. Do not add markdown, code fences, explanations, labels, or extra keys:
 {
   "overallScore": 0,
   "technicalScore": 0,
@@ -172,7 +240,11 @@ Return valid JSON only in this exact shape:
 Scoring rules:
 - Score from 0 to 10.
 - Be honest but constructive.
-- Mention specific examples from the interview.
+- Keep string fields concise.
+- Keep strengths, weaknesses, improvements, and recommendedTopics to 2-4 short items each.
+- Keep finalFeedback to 1-2 short sentences.
+- Mention specific examples from the interview briefly.
 - Recommend what the user should study next.
+- Output raw JSON only.
 `
 }
