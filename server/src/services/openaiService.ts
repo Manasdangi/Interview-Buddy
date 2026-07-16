@@ -1,5 +1,4 @@
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent'
-const CACHE_DURATION_SECONDS = 3600 // 1 hour
 
 export class GeminiServiceError extends Error {
   statusCode: number
@@ -35,10 +34,6 @@ type GeminiResponse = {
 type GeminiPayload = {
   contents: Array<{ parts: Array<{ text?: string; inline_data?: unknown }> }>
   systemInstruction?: { parts: Array<{ text: string }> }
-  cachedContent?: {
-    expireTime: string
-    ttl?: string
-  }
 }
 
 function getApiKey() {
@@ -47,11 +42,6 @@ function getApiKey() {
     throw new GeminiServiceError(500, 'GEMINI_API_KEY is required. Add it to server/.env and restart the backend.')
   }
   return apiKey
-}
-
-function buildCacheExpireTime(durationSeconds: number = CACHE_DURATION_SECONDS): string {
-  const futureDate = new Date(Date.now() + durationSeconds * 1000)
-  return futureDate.toISOString()
 }
 
 async function readGeminiError(response: Response, fallback: string) {
@@ -76,7 +66,7 @@ async function readGeminiError(response: Response, fallback: string) {
   return new GeminiServiceError(response.status, message)
 }
 
-export async function createAiResponse(systemPrompt: string, userPrompt: string, useCache: boolean = true) {
+export async function createAiResponse(systemPrompt: string, userPrompt: string) {
   const apiKey = getApiKey()
 
   const payload: GeminiPayload = {
@@ -92,13 +82,6 @@ export async function createAiResponse(systemPrompt: string, userPrompt: string,
         ],
       },
     ],
-  }
-
-  // Add cache control for frequently used system prompts
-  if (useCache) {
-    payload.cachedContent = {
-      expireTime: buildCacheExpireTime(),
-    }
   }
 
   const response = await fetch(GEMINI_ENDPOINT, {
