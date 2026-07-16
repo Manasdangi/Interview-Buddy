@@ -1,4 +1,5 @@
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent'
+const CACHE_DURATION_SECONDS = 3600 // 1 hour
 
 export class GeminiServiceError extends Error {
   statusCode: number
@@ -23,6 +24,21 @@ type GeminiContent =
 type GeminiResponse = {
   candidates?: Array<{ content?: GeminiContent }>
   output?: Array<{ content?: GeminiContent }>
+  usageMetadata?: {
+    cacheCreationTokenCount?: number
+    cacheReadTokens?: number
+    inputTokens?: number
+    outputTokens?: number
+  }
+}
+
+type GeminiPayload = {
+  contents: Array<{ parts: Array<{ text?: string; inline_data?: unknown }> }>
+  systemInstruction?: { parts: Array<{ text: string }> }
+  cachedContent?: {
+    expireTime: string
+    ttl?: string
+  }
 }
 
 function getApiKey() {
@@ -31,6 +47,11 @@ function getApiKey() {
     throw new GeminiServiceError(500, 'GEMINI_API_KEY is required. Add it to server/.env and restart the backend.')
   }
   return apiKey
+}
+
+function buildCacheExpireTime(durationSeconds: number = CACHE_DURATION_SECONDS): string {
+  const futureDate = new Date(Date.now() + durationSeconds * 1000)
+  return futureDate.toISOString()
 }
 
 async function readGeminiError(response: Response, fallback: string) {
@@ -55,18 +76,29 @@ async function readGeminiError(response: Response, fallback: string) {
   return new GeminiServiceError(response.status, message)
 }
 
-export async function createAiResponse(systemPrompt: string, userPrompt: string) {
+export async function createAiResponse(systemPrompt: string, userPrompt: string, useCache: boolean = true) {
   const apiKey = getApiKey()
-  const payload = {
+
+  const payload: GeminiPayload = {
+    systemInstruction: {
+      parts: [{ text: systemPrompt }],
+    },
     contents: [
       {
         parts: [
           {
-            text: `${systemPrompt}\n\nUser: ${userPrompt}`,
+            text: userPrompt,
           },
         ],
       },
     ],
+  }
+
+  // Add cache control for frequently used system prompts
+  if (useCache) {
+    payload.cachedContent = {
+      expireTime: buildCacheExpireTime(),
+    }
   }
 
   const response = await fetch(GEMINI_ENDPOINT, {
@@ -105,13 +137,14 @@ export async function createAiResponse(systemPrompt: string, userPrompt: string)
 
 export async function transcribeAudio(audioBase64: string, mimeType: string) {
   const apiKey = getApiKey()
-  const payload = {
+
+  const payload: GeminiPayload = {
+    systemInstruction: {
+      parts: [{ text: 'Transcribe this interview answer audio. Return only the spoken words, with no commentary.' }],
+    },
     contents: [
       {
         parts: [
-          {
-            text: 'Transcribe this interview answer audio. Return only the spoken words, with no commentary.',
-          },
           {
             inline_data: {
               mime_type: mimeType,
