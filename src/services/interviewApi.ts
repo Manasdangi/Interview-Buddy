@@ -121,6 +121,6 @@ export const saveInterviewSummary = async (
 }
 
 export const fetchInterviewSummaries = async () => {
-  const response = await client.get<{ summaries: InterviewSummary[] }>('/interviews/summaries')
+  const response = await client.get<{ summaries: InterviewSummary[] }>('/interviews/history')
   return response.data.summaries
 }

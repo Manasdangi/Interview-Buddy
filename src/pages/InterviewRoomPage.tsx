@@ -187,8 +187,42 @@ export default function InterviewRoomPage() {
     return <Loader />
   }
 
+  if (error && !currentSession) {
+    return (
+      <Card className="rounded-[2rem] border-rose-700/40 bg-rose-950/70 p-6 text-rose-100 shadow-soft">
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm uppercase tracking-[0.24em] text-rose-300/80">Interview unavailable</p>
+            <h1 className="mt-2 text-2xl font-semibold text-white">We couldn&apos;t load this interview session.</h1>
+          </div>
+          <p className="text-sm text-rose-100/90">{error}</p>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="primary"
+              onClick={() => {
+                navigate('/dashboard')
+              }}
+            >
+              Go to dashboard
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (sessionId) {
+                  void loadSession(sessionId)
+                }
+              }}
+            >
+              Retry loading
+            </Button>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
   if (!currentSession) {
-    return <p className="text-slate-300">Loading session...</p>
+    return <p className="text-slate-300">Preparing interview session...</p>
   }
 
   const handleSend = async (message: string) => {

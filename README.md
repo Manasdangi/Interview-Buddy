@@ -66,6 +66,7 @@ The frontend Firebase web config is loaded from `VITE_FIREBASE_*` environment va
 - `POST /api/interviews/start`
 - `POST /api/interviews/:sessionId/message`
 - `POST /api/interviews/:sessionId/complete`
+- `GET /api/interviews/history`
 - `GET /api/interviews/:sessionId`
 - `GET /api/interviews`
 
@@ -74,3 +75,4 @@ The frontend Firebase web config is loaded from `VITE_FIREBASE_*` environment va
 - The Gemini API key is loaded from `server/.env`
 - Firestore stores interview sessions when Firebase Admin credentials are configured
 - Tailwind CSS is used for a dark, modern UI
+- For local backend development, run `cd server && npm run dev`; it now watches for file changes and reloads automatically

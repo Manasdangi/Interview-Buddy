@@ -21,6 +21,7 @@ const asyncHandler =
 
 router.post('/start', asyncHandler(startInterview))
 router.post('/transcribe', asyncHandler(transcribeVoice))
+router.get('/history', asyncHandler(listSummaries))
 router.get('/summaries', asyncHandler(listSummaries))
 router.post('/:sessionId/message', asyncHandler(postMessage))
 router.post('/:sessionId/complete', asyncHandler(completeInterview))
