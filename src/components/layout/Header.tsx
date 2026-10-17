@@ -91,7 +91,7 @@ export function Header() {
                   )}
                   <span className="max-w-[140px] truncate">{user.displayName || user.email || 'Signed in'}</span>
                 </div>
-                <Button type="button" variant="secondary" className="gap-2 px-4 py-2" onClick={handleSignOut}>
+                <Button type="button" variant="secondary" size="sm" className="gap-2" onClick={handleSignOut}>
                   <LogOut className="h-4 w-4" />
                   Sign out
                 </Button>
@@ -100,7 +100,7 @@ export function Header() {
               <Button
                 type="button"
                 variant="secondary"
-                className="gap-2 px-4 py-2"
+                size="sm" className="gap-2"
                 onClick={signInWithGoogle}
                 disabled={!authReady}
                 title={authEnabled ? 'Sign in with Google' : 'Add VITE_FIREBASE_* environment variables to enable Google sign-in'}

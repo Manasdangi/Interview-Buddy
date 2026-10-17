@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Timer } from 'lucide-react'
+import { cn } from '../../utils/cn'
 
 type InterviewTimerProps = {
   startedAt: string
@@ -43,11 +45,14 @@ export function InterviewTimer({ startedAt, completedAt, maxDurationSeconds = de
   }, [completedAt, hasReachedLimit, maxDurationSeconds, startedAt])
 
   return (
-    <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-4 text-sm text-slate-300 shadow-soft">
-      <p className="text-slate-400">Interview timer</p>
-      <p className="mt-2 text-3xl font-semibold text-white">{formatDuration(elapsedSeconds)}</p>
-      {completedAt ? <p className="mt-2 text-xs text-slate-500">Completed</p> : null}
-      {!completedAt && hasReachedLimit ? <p className="mt-2 text-xs text-amber-300">Time limit reached</p> : null}
-    </div>
+    <span
+      role="timer"
+      aria-label={`Elapsed time ${formatDuration(elapsedSeconds)}${hasReachedLimit ? ', time limit reached' : ''}`}
+      title={hasReachedLimit ? 'Time limit reached' : 'Elapsed time'}
+      className={cn('inline-flex items-center gap-1.5 text-sm font-semibold tabular-nums text-slate-200', hasReachedLimit && 'text-amber-300')}
+    >
+      <Timer className="h-4 w-4 text-slate-400" aria-hidden="true" />
+      {formatDuration(elapsedSeconds)}
+    </span>
   )
 }

@@ -24,7 +24,8 @@ export function ErrorToast({ message }: ErrorToastProps) {
         <Button
           type="button"
           variant="ghost"
-          className="h-8 w-8 shrink-0 rounded-full p-0 text-rose-100 hover:bg-rose-900"
+          size="icon"
+          className="h-8 w-8 shrink-0 text-rose-100 hover:bg-rose-900"
           onClick={() => setDismissedMessage(visibleMessage)}
           aria-label="Dismiss error"
         >

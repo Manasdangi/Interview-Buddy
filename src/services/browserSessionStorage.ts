@@ -56,3 +56,30 @@ export function saveSessionAccessKey(sessionId: string, accessKey: string) {
 export function getSessionAccessKey(sessionId: string) {
   return readAccessKeys().find((item) => item.sessionId === sessionId)?.accessKey ?? null
 }
+
+const draftKey = (sessionId: string) => `interview-buddy:draft:${sessionId}`
+
+/** Unsent answers live in localStorage so a refresh or accidental close doesn't lose them. */
+export function loadAnswerDraft(sessionId: string) {
+  try {
+    return window.localStorage.getItem(draftKey(sessionId)) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function saveAnswerDraft(sessionId: string, draft: string) {
+  try {
+    if (draft.trim()) {
+      window.localStorage.setItem(draftKey(sessionId), draft)
+    } else {
+      window.localStorage.removeItem(draftKey(sessionId))
+    }
+  } catch {
+    // Storage may be unavailable; drafts are a convenience only.
+  }
+}
+
+export function clearAnswerDraft(sessionId: string) {
+  saveAnswerDraft(sessionId, '')
+}

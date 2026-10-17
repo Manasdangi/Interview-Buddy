@@ -1,24 +1,25 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Volume2, VolumeX } from 'lucide-react'
 import { useInterviewStore } from '../store/interviewStore'
 import { ChatPanel } from '../components/interview/ChatPanel'
 import { InterviewControls } from '../components/interview/InterviewControls'
-import { InterviewTimer } from '../components/interview/InterviewTimer'
-import { ProblemStatement } from '../components/interview/ProblemStatement'
+import { InterviewTopBar } from '../components/interview/InterviewTopBar'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Loader } from '../components/ui/Loader'
 import { saveQuitSummary as saveQuitSummaryApi } from '../services/interviewApi'
+import { clearAnswerDraft } from '../services/browserSessionStorage'
+import { speakText } from '../utils/speechText'
 
 export default function InterviewRoomPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
   const { currentSession, loadingSession, sending, completing, error, loadSession, sendAnswer, completeInterview, resetInterview } = useInterviewStore()
   const [pendingVoiceTranscript, setPendingVoiceTranscript] = useState<string | null>(null)
+  const [pendingAnswer, setPendingAnswer] = useState<string | null>(null)
+  const [confirmEndOpen, setConfirmEndOpen] = useState(false)
   const [voiceReplies, setVoiceReplies] = useState(true)
-  const controlsRef = useRef<HTMLDivElement | null>(null)
-  const lastAutoScrolledMessageIdRef = useRef<string | null>(null)
   const lastSpokenMessageIdRef = useRef<string | null>(null)
   const allowBrowserBackRef = useRef(false)
   const exitInProgressRef = useRef(false)
@@ -66,6 +67,7 @@ export default function InterviewRoomPage() {
 
   useEffect(() => {
     if (currentSession?.status === 'COMPLETED') {
+      clearAnswerDraft(currentSession.id)
       navigate(`/results/${currentSession.id}`)
     }
   }, [currentSession?.id, currentSession?.status, navigate])
@@ -77,25 +79,8 @@ export default function InterviewRoomPage() {
     if (!latestMessage || latestMessage.role !== 'AI' || latestMessage.id === lastSpokenMessageIdRef.current) return
 
     lastSpokenMessageIdRef.current = latestMessage.id
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(latestMessage.content)
-    utterance.rate = 0.95
-    window.speechSynthesis.speak(utterance)
+    speakText(latestMessage.content)
   }, [currentSession?.messages, voiceReplies])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const latestMessage = currentSession?.messages.at(-1)
-    if (!latestMessage || latestMessage.role !== 'AI' || latestMessage.id === lastAutoScrolledMessageIdRef.current) return
-
-    lastAutoScrolledMessageIdRef.current = latestMessage.id
-    const frameId = window.requestAnimationFrame(() => {
-      controlsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-    })
-
-    return () => window.cancelAnimationFrame(frameId)
-  }, [currentSession?.messages])
 
   useEffect(() => {
     return () => {
@@ -232,82 +217,80 @@ export default function InterviewRoomPage() {
   }
 
   const handleSend = async (message: string) => {
-    return sendAnswer(message)
+    setPendingAnswer(message)
+    try {
+      return await sendAnswer(message)
+    } finally {
+      setPendingAnswer(null)
+    }
   }
 
-  const handleComplete = async () => {
-    await completeInterview()
+  const handleConfirmEnd = () => {
+    setConfirmEndOpen(false)
+    stopSpeech()
+    void completeInterview()
   }
+
+  const answeredCount = currentSession.messages.filter((message) => message.role === 'USER').length
+  const isFinalAnswer = currentSession.currentQuestionCount >= currentSession.maxQuestions
+  const thinkingLabel = completing || (sending && isFinalAnswer) ? 'Scoring your interview' : sending ? 'Interviewer is thinking' : null
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[320px_1fr]">
-      <div className="space-y-6">
-        <ProblemStatement session={currentSession} />
-        <Card className="rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
-          <InterviewTimer startedAt={currentSession.startedAt} completedAt={currentSession.completedAt} />
-          <div className="mt-6 space-y-3 text-slate-400">
-            <p className="text-sm font-medium text-white">Interview flow</p>
-            <p>Answer each prompt clearly. The interviewer will follow up based on your response.</p>
-          </div>
-        </Card>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-3">
+      <InterviewTopBar
+        session={currentSession}
+        voiceReplies={voiceReplies}
+        endDisabled={currentSession.status === 'COMPLETED' || sending || completing}
+        onToggleVoiceReplies={() => {
+          if (voiceReplies) {
+            stopSpeech()
+          }
+          setVoiceReplies((current) => !current)
+        }}
+        onStopSpeech={stopSpeech}
+        onBack={async () => {
+          if (await confirmExitInterview()) {
+            navigate('/dashboard')
+          }
+        }}
+        onEnd={() => setConfirmEndOpen(true)}
+      />
 
-      <div className="space-y-6">
-        {error ? <div className="rounded-3xl border border-rose-700/40 bg-rose-950/80 p-4 text-sm text-rose-200">{error}</div> : null}
-        <Card className="rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Live interviewer</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">AI Interview Chat</h2>
-            </div>
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                variant={voiceReplies ? 'primary' : 'secondary'}
-                className="gap-2"
-                onClick={() => {
-                  if (voiceReplies) {
-                    stopSpeech()
-                  }
-                  setVoiceReplies((current) => !current)
-                }}
-              >
-                {voiceReplies ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                Voice replies
-              </Button>
-              <Button variant="secondary" className="gap-2" onClick={stopSpeech}>
-                <VolumeX className="h-4 w-4" />
-                Stop speech
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={async () => {
-                  if (await confirmExitInterview()) {
-                    navigate('/dashboard')
-                  }
-                }}
-              >
-                Back to dashboard
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <ChatPanel messages={currentSession.messages} pendingVoiceTranscript={pendingVoiceTranscript} />
-          </div>
-        </Card>
-
-        <div ref={controlsRef}>
-          <InterviewControls
-            onSubmit={handleSend}
-            onComplete={handleComplete}
-            onVoiceStart={stopSpeech}
-            onVoiceTranscript={setPendingVoiceTranscript}
-            sessionId={currentSession.id}
-            loading={sending || completing}
-            disabled={currentSession.status === 'COMPLETED'}
-          />
+      {error ? (
+        <div role="alert" className="rounded-3xl border border-rose-700/40 bg-rose-950/80 p-4 text-sm text-rose-200">
+          {error}
         </div>
-      </div>
+      ) : null}
+
+      <Card className="rounded-[2rem] p-3 sm:p-4">
+        <ChatPanel messages={currentSession.messages} pendingAnswer={pendingAnswer ?? pendingVoiceTranscript} thinkingLabel={thinkingLabel} />
+      </Card>
+
+      <InterviewControls
+        key={currentSession.id}
+        onSubmit={handleSend}
+        onVoiceStart={stopSpeech}
+        onVoiceTranscript={setPendingVoiceTranscript}
+        sessionId={currentSession.id}
+        loading={sending || completing}
+        disabled={currentSession.status === 'COMPLETED'}
+      />
+
+      <ConfirmDialog
+        open={confirmEndOpen}
+        title="End the interview now?"
+        description={
+          <p>
+            You've answered {answeredCount} of {currentSession.maxQuestions} questions. Your scorecard will be based only on these answers, and
+            you can't continue this interview afterwards.
+          </p>
+        }
+        cancelLabel="Keep going"
+        confirmLabel="End and get scorecard"
+        tone="danger"
+        onCancel={() => setConfirmEndOpen(false)}
+        onConfirm={handleConfirmEnd}
+      />
     </div>
   )
 }

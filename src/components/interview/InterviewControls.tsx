@@ -1,12 +1,12 @@
 import { Mic, MicOff, Radio, RotateCcw, Send, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { transcribeVoice } from '../../services/interviewApi'
+import { loadAnswerDraft, saveAnswerDraft } from '../../services/browserSessionStorage'
 import { cn } from '../../utils/cn'
 import { Button } from '../ui/Button'
 
 type InterviewControlsProps = {
   onSubmit: (value: string) => Promise<boolean>
-  onComplete: () => Promise<void>
   onVoiceStart?: () => void
   onVoiceTranscript?: (value: string | null) => void
   sessionId: string
@@ -31,12 +31,15 @@ function blobToBase64(blob: Blob) {
   })
 }
 
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
+const sendShortcutLabel = isMac ? '⌘ Enter' : 'Ctrl Enter'
+
 function stopStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((track) => track.stop())
 }
 
-export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceTranscript, sessionId, loading, disabled }: InterviewControlsProps) {
-  const [input, setInput] = useState('')
+export function InterviewControls({ onSubmit, onVoiceStart, onVoiceTranscript, sessionId, loading, disabled }: InterviewControlsProps) {
+  const [input, setInput] = useState(() => loadAnswerDraft(sessionId))
   const [processingVoice, setProcessingVoice] = useState(false)
   const [recording, setRecording] = useState(false)
   const [liveMode, setLiveMode] = useState(false)
@@ -232,6 +235,17 @@ export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceT
     await submitAnswer(input)
   }
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault()
+      void submitAnswer(input)
+    }
+  }
+
+  useEffect(() => {
+    saveAnswerDraft(sessionId, input)
+  }, [input, sessionId])
+
   useEffect(() => {
     if (disabled || loading) {
       recordingModeRef.current = null
@@ -248,15 +262,18 @@ export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceT
   }, [stopRecording])
 
   return (
-    <div className="rounded-[2rem] border border-slate-800/80 bg-slate-950/90 p-5 shadow-soft">
-      <form className="space-y-4" onSubmit={handleSubmit}>
+    <div className="rounded-[2rem] border border-slate-800/80 bg-slate-950/90 p-4 shadow-soft sm:p-5">
+      <form className="space-y-3" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className="block text-sm font-semibold text-slate-200">Your answer</label>
+          <label htmlFor="interview-answer" className="block text-sm font-semibold text-slate-200">
+            Your answer
+          </label>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant={recording && !liveMode ? 'primary' : 'secondary'}
-              className="gap-2 px-4 py-2"
+              size="sm"
+              className="gap-2"
               onClick={() => (recording && !liveMode ? stopRecording() : startRecording('dictate'))}
               disabled={!supportsVoice || loading || disabled || liveMode || processingVoice}
             >
@@ -266,7 +283,8 @@ export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceT
             <Button
               type="button"
               variant={liveMode ? 'primary' : 'secondary'}
-              className="gap-2 px-4 py-2"
+              size="sm"
+              className="gap-2"
               onClick={() => (liveMode ? stopLiveMode() : startRecording('live'))}
               disabled={!supportsVoice || loading || disabled || (recording && !liveMode) || processingVoice}
             >
@@ -276,18 +294,17 @@ export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceT
           </div>
         </div>
         <textarea
+          id="interview-answer"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          className="min-h-[140px] w-full resize-none rounded-3xl border border-slate-700 bg-slate-900 px-4 py-4 text-sm text-slate-100 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+          onKeyDown={handleKeyDown}
+          aria-describedby="interview-answer-hint"
+          className="min-h-[104px] w-full resize-none rounded-3xl border border-slate-700 bg-slate-900 px-4 py-4 text-sm text-slate-100 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
           placeholder={liveMode ? 'Speak your question. Click Finish when done.' : 'Type or dictate your answer'}
           disabled={disabled}
         />
-        <div className="min-h-6 text-sm">
-          <p className={cn('text-slate-500', recording && 'text-emerald-300')}>{supportsVoice ? voiceStatus : 'Voice recording is not supported in this browser.'}</p>
-          {voiceError ? <p className="mt-2 text-rose-300">{voiceError}</p> : null}
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-          <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" className="gap-2" disabled={loading || disabled || !input.trim()}>
               <Send className="h-4 w-4" />
               {loading ? 'Sending...' : 'Send answer'}
@@ -298,14 +315,21 @@ export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceT
                 Retry voice
               </Button>
             ) : null}
-            <Button type="button" variant="secondary" className="gap-2" onClick={() => setInput('')} disabled={loading || disabled || !input}>
+            <Button type="button" variant="ghost" className="gap-2" onClick={() => setInput('')} disabled={loading || disabled || !input}>
               <Trash2 className="h-4 w-4" />
               Clear
             </Button>
           </div>
-          <Button type="button" variant="secondary" onClick={onComplete} disabled={disabled || loading}>
-            Complete interview
-          </Button>
+          <div className="space-y-1 text-xs sm:text-right" aria-live="polite">
+            <p className={cn('text-slate-500', recording && 'text-emerald-300')}>
+              {supportsVoice ? voiceStatus : 'Voice recording is not supported in this browser.'}
+            </p>
+            {voiceError ? <p className="text-rose-300">{voiceError}</p> : null}
+            <p id="interview-answer-hint" className="hidden text-slate-500 sm:block">
+              <kbd className="rounded-md border border-slate-700 bg-slate-900 px-1.5 py-0.5 font-sans text-slate-300">{sendShortcutLabel}</kbd> to send ·
+              drafts save automatically
+            </p>
+          </div>
         </div>
       </form>
     </div>
