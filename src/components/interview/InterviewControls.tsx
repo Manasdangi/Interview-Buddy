@@ -9,6 +9,7 @@ type InterviewControlsProps = {
   onComplete: () => Promise<void>
   onVoiceStart?: () => void
   onVoiceTranscript?: (value: string | null) => void
+  sessionId: string
   loading: boolean
   disabled: boolean
 }
@@ -34,7 +35,7 @@ function stopStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((track) => track.stop())
 }
 
-export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceTranscript, loading, disabled }: InterviewControlsProps) {
+export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceTranscript, sessionId, loading, disabled }: InterviewControlsProps) {
   const [input, setInput] = useState('')
   const [processingVoice, setProcessingVoice] = useState(false)
   const [recording, setRecording] = useState(false)
@@ -87,7 +88,7 @@ export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceT
 
       try {
         const audioBase64 = await blobToBase64(blob)
-        const transcript = (await transcribeVoice(audioBase64, blob.type || 'audio/webm')).trim()
+        const transcript = (await transcribeVoice(sessionId, audioBase64, blob.type || 'audio/webm')).trim()
 
         if (!transcript) {
           setVoiceStatus('No speech detected. Try again.')
@@ -120,7 +121,7 @@ export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceT
         setProcessingVoice(false)
       }
     },
-    [submitAnswer],
+    [sessionId, submitAnswer],
   )
 
   const stopRecording = useCallback(() => {

@@ -85,3 +85,11 @@ export type InterviewSummary = {
   createdAt: string
   updatedAt: string
 }
+
+/** Server-only fields; never send these to the client. */
+export type StoredInterviewSession = InterviewSession & {
+  uid?: string
+  accessKeyHash?: string
+  version?: number
+  pendingTurnAt?: string
+}

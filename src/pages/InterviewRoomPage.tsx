@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Volume2, VolumeX } from 'lucide-react'
 import { useInterviewStore } from '../store/interviewStore'
@@ -9,12 +9,12 @@ import { ProblemStatement } from '../components/interview/ProblemStatement'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Loader } from '../components/ui/Loader'
-import { saveInterviewSummary } from '../services/interviewApi'
+import { saveQuitSummary as saveQuitSummaryApi } from '../services/interviewApi'
 
 export default function InterviewRoomPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
-  const { currentSession, loading, error, loadSession, sendAnswer, completeInterview, resetInterview } = useInterviewStore()
+  const { currentSession, loadingSession, sending, completing, error, loadSession, sendAnswer, completeInterview, resetInterview } = useInterviewStore()
   const [pendingVoiceTranscript, setPendingVoiceTranscript] = useState<string | null>(null)
   const [voiceReplies, setVoiceReplies] = useState(true)
   const controlsRef = useRef<HTMLDivElement | null>(null)
@@ -23,14 +23,14 @@ export default function InterviewRoomPage() {
   const allowBrowserBackRef = useRef(false)
   const exitInProgressRef = useRef(false)
   const historyGuardArmedRef = useRef(false)
+  const quitSummarySavedForRef = useRef<string | null>(null)
   const hasActiveInterview = currentSession?.status === 'ACTIVE'
 
   const saveQuitSummary = async () => {
     if (!currentSession || currentSession.status !== 'ACTIVE') return
-    await saveInterviewSummary(currentSession.id, 'QUIT', {
-      keepalive: true,
-      session: currentSession,
-    })
+    if (quitSummarySavedForRef.current === currentSession.id) return
+    quitSummarySavedForRef.current = currentSession.id
+    await saveQuitSummaryApi(currentSession.id, { keepalive: true })
   }
 
   const stopSpeech = () => {
@@ -49,6 +49,12 @@ export default function InterviewRoomPage() {
     resetInterview()
     return true
   }
+
+  // Effect events always see the latest session without re-subscribing the listeners below.
+  const onPageHide = useEffectEvent(() => {
+    void saveQuitSummary()
+  })
+  const onConfirmExit = useEffectEvent(() => confirmExitInterview())
 
   useEffect(() => {
     if (!sessionId) return
@@ -100,14 +106,14 @@ export default function InterviewRoomPage() {
   useEffect(() => {
     if (!hasActiveInterview) return undefined
 
+    // Only prompt here; the user may still cancel. The summary is saved on pagehide, once the page is really leaving.
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      void saveQuitSummary()
       event.preventDefault()
       event.returnValue = ''
     }
 
     const handlePageHide = () => {
-      void saveQuitSummary()
+      onPageHide()
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -117,7 +123,7 @@ export default function InterviewRoomPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('pagehide', handlePageHide)
     }
-  }, [currentSession, hasActiveInterview])
+  }, [hasActiveInterview])
 
   useEffect(() => {
     if (!hasActiveInterview || typeof window === 'undefined') return undefined
@@ -133,7 +139,7 @@ export default function InterviewRoomPage() {
         return
       }
 
-      if (!(await confirmExitInterview())) {
+      if (!(await onConfirmExit())) {
         window.history.pushState({ interviewGuard: true }, '', window.location.href)
         return
       }
@@ -163,7 +169,7 @@ export default function InterviewRoomPage() {
 
       event.preventDefault()
 
-      if (await confirmExitInterview()) {
+      if (await onConfirmExit()) {
         navigate(nextPath)
       }
     }
@@ -177,13 +183,13 @@ export default function InterviewRoomPage() {
       historyGuardArmedRef.current = false
       allowBrowserBackRef.current = false
     }
-  }, [currentSession, hasActiveInterview, navigate, resetInterview])
+  }, [hasActiveInterview, navigate])
 
   if (!sessionId) {
     return <p className="text-slate-300">Invalid interview session.</p>
   }
 
-  if (loading && !currentSession) {
+  if (loadingSession && !currentSession) {
     return <Loader />
   }
 
@@ -296,7 +302,8 @@ export default function InterviewRoomPage() {
             onComplete={handleComplete}
             onVoiceStart={stopSpeech}
             onVoiceTranscript={setPendingVoiceTranscript}
-            loading={loading}
+            sessionId={currentSession.id}
+            loading={sending || completing}
             disabled={currentSession.status === 'COMPLETED'}
           />
         </div>

@@ -47,7 +47,7 @@ export default function SelectDifficultyPage() {
   const [selected, setSelected] = useState<Difficulty>('BEGINNER')
   const [selectedSet, setSelectedSet] = useState<QuestionSet>(1)
   const navigate = useNavigate()
-  const { startInterview, loading, error } = useInterviewStore()
+  const { startInterview, starting, error } = useInterviewStore()
 
   const heading = useMemo(() => interviewCopy[interviewType ?? 'ROUND_1'], [interviewType])
   const selectedDifficulty = difficulties.find((item) => item.value === selected)
@@ -146,8 +146,8 @@ export default function SelectDifficultyPage() {
           Selected: <span className="font-semibold text-white">{selectedDifficulty?.label} · Set {selectedSet}</span>
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={handleStart} disabled={loading}>
-            {loading ? 'Starting...' : 'Start Interview'}
+          <Button onClick={handleStart} disabled={starting}>
+            {starting ? 'Starting...' : 'Start Interview'}
           </Button>
           <a href="/select-interview" className="inline-flex rounded-2xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-800">
             Change track

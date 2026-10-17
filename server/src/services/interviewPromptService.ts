@@ -7,12 +7,6 @@ import type {
   QuestionSet,
 } from '../types/interview.js'
 
-const questionCounts = {
-  ROUND_1: 5,
-  ROUND_2: 5,
-  SYSTEM_DESIGN: 5,
-}
-
 function formatTopicPath(variant: DailyQuestionVariant) {
   return variant.topicPath.map((topic, index) => `${index + 1}. ${topic}`).join('\n')
 }
@@ -57,16 +51,28 @@ function formatStructuredState(session: InterviewSession) {
   "candidateWeakAreas": ${JSON.stringify(state.candidateWeakAreas)},
   "difficultyTrend": "${state.difficultyTrend}",
   "lastQuestionTopic": ${JSON.stringify(state.lastQuestionTopic)},
-  "lastAnswerQuality": "${state.lastAnswerQuality}"
+  "previousAnswerQuality": "${state.lastAnswerQuality}"
 }`
 }
+
+export type InterviewPromptMode = 'FIRST_QUESTION' | 'FOLLOW_UP'
 
 export function createInterviewPrompt(
   session: InterviewSession,
   questionSet: QuestionSet,
   dailyVariant: DailyQuestionVariant,
+  mode: InterviewPromptMode,
 ) {
-  const maxQuestions = questionCounts[session.interviewType]
+  const maxQuestions = session.maxQuestions
+  const nextQuestionNumber = mode === 'FIRST_QUESTION' ? 1 : session.currentQuestionCount + 1
+  const finalQuestionNote = nextQuestionNumber >= maxQuestions
+    ? `\nThe next question is question ${nextQuestionNumber} of ${maxQuestions}, the final question. Do not promise further questions.`
+    : `\nThe next question is question ${nextQuestionNumber} of ${maxQuestions}.`
+  const responseInstruction = mode === 'FIRST_QUESTION'
+    ? `Return only the next interviewer message.${finalQuestionNote}`
+    : `Respond with JSON containing:
+- "answerQuality": your assessment of the latest candidate answer. WEAK = incorrect, vague, or "I don't know". MODERATE = partially correct or missing reasoning. STRONG = correct with clear reasoning, trade-offs, or examples.
+- "message": the next interviewer message only.${finalQuestionNote}`
   const setInstruction = `Question set: ${questionSet} of 5.
 Daily variant date: ${dailyVariant.questionDate}.
 Daily variant key: ${dailyVariant.dailySeed}.
@@ -108,7 +114,7 @@ ${formatStructuredState(session)}
 
 ${compactExchange}
 
-Return only the next interviewer message.
+${responseInstruction}
 `,
     ROUND_2: `You are a senior frontend interviewer conducting Round 2.
 
@@ -141,7 +147,7 @@ ${formatStructuredState(session)}
 
 ${compactExchange}
 
-Return only the next interviewer message.
+${responseInstruction}
 `,
     SYSTEM_DESIGN: `You are a staff frontend engineer conducting a system design interview.
 
@@ -187,7 +193,7 @@ ${formatStructuredState(session)}
 
 ${compactExchange}
 
-Return only the next interviewer message.
+${responseInstruction}
 `,
   }
 

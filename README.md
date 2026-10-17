@@ -9,7 +9,7 @@ Interview Buddy is a React + TypeScript + Vite MVP that simulates a frontend int
 - Beginner, Intermediate, and Advanced difficulty selection
 - Five question-set variants for every difficulty level
 - AI interviewer chat flow with follow-ups and one-question-at-a-time behavior
-- Backend-powered session storage with Express and OpenAI integration
+- Backend-powered session storage with Express, Firestore, and Gemini
 - Results scorecard with evaluation and recommended topics
 
 ## Run locally
@@ -57,18 +57,33 @@ Interview sessions are persisted to Firestore when Firebase Admin credentials ar
 - `FIREBASE_SERVICE_ACCOUNT_JSON`
 - `FIREBASE_SERVICE_ACCOUNT_BASE64`
 
-On Vercel, add the same values in Project Settings > Environment Variables. If Firebase credentials are not configured, the backend falls back to in-memory sessions.
+On Vercel, add the same values in Project Settings > Environment Variables. Without Firebase credentials the backend falls back to in-memory sessions, but only in local development: production and preview deployments refuse to start a session unless Firestore is configured (set `ALLOW_IN_MEMORY_STORE=true` to override).
+
+Sign-in tokens are verified with Firebase Admin, which only needs `FIREBASE_PROJECT_ID` (or `VITE_FIREBASE_PROJECT_ID`).
+
+The Express server only accepts browser requests from `CORS_ORIGINS` (comma-separated, default `http://localhost:5173`).
 
 The frontend Firebase web config is loaded from `VITE_FIREBASE_*` environment variables. These values enable Google sign-in in the browser. The private Firebase Admin credentials stay server-side only.
 
 ## Backend endpoints
 
-- `POST /api/interviews/start`
-- `POST /api/interviews/:sessionId/message`
+- `POST /api/interviews/start` returns the session and a one-time `accessKey`
+- `POST /api/interviews/:sessionId/message` (after the final question, this completes the interview)
 - `POST /api/interviews/:sessionId/complete`
-- `GET /api/interviews/history`
+- `POST /api/interviews/:sessionId/summary` (signed-in only; records a quit)
 - `GET /api/interviews/:sessionId`
-- `GET /api/interviews`
+- `POST /api/interviews/transcribe` (body includes `sessionId`)
+- `GET /api/interviews/history` (signed-in only)
+
+Session routes are only available to the session's owner: either the signed-in user who started it (`Authorization: Bearer <Firebase ID token>`) or the browser holding its access key (`X-Session-Key`). Anyone else gets a 404.
+
+Business logic lives in `server/src/http/handlers.ts`; the Express routes and the Vercel functions in `api/` are thin adapters around it.
+
+## Tests
+
+```bash
+npm test
+```
 
 ## Notes
 
