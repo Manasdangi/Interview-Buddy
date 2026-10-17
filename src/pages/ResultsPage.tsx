@@ -9,20 +9,21 @@ import { Loader } from '../components/ui/Loader'
 export default function ResultsPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
-  const { currentSession, loadSession, loading, error } = useInterviewStore()
+  const { currentSession, loadSession, loadingSession, error } = useInterviewStore()
 
+  const currentSessionId = currentSession?.id
   useEffect(() => {
-    if (sessionId && (!currentSession || currentSession.id !== sessionId)) {
-      loadSession(sessionId)
+    if (sessionId && currentSessionId !== sessionId) {
+      void loadSession(sessionId)
     }
-  }, [sessionId])
+  }, [currentSessionId, loadSession, sessionId])
 
-  if (loading && !currentSession) {
+  if (loadingSession && currentSession?.id !== sessionId) {
     return <Loader />
   }
 
-  if (!currentSession || !currentSession.scorecard) {
-    return <p className="text-slate-300">Results are unavailable. Please complete the interview first.</p>
+  if (!currentSession || currentSession.id !== sessionId || !currentSession.scorecard) {
+    return <p className="text-slate-300">{error ?? 'Results are unavailable. Please complete the interview first.'}</p>
   }
 
   return (

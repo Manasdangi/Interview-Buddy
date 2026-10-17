@@ -3,7 +3,7 @@ import { LogIn, LogOut } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import { useInterviewStore } from '../../store/interviewStore'
-import { saveInterviewSummary } from '../../services/interviewApi'
+import { saveQuitSummary } from '../../services/interviewApi'
 import { cn } from '../../utils/cn'
 import { Button } from '../ui/Button'
 
@@ -43,7 +43,7 @@ export function Header() {
       const shouldLeave = window.confirm('If you sign out now, you will lose your interview progress.')
       if (!shouldLeave) return
 
-      await saveInterviewSummary(currentSession.id, 'QUIT', { session: currentSession })
+      await saveQuitSummary(currentSession.id)
       resetInterview()
       navigate('/dashboard')
     }

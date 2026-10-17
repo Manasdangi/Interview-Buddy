@@ -9,19 +9,23 @@ import { fetchInterviewSummaries } from '../services/interviewApi'
 import type { InterviewSummary } from '../types/interview'
 
 export default function DashboardPage() {
-  const { sessions, loading, error } = useInterviewStore()
+  const { sessions } = useInterviewStore()
   const { authReady, user } = useAuthStore()
   const [summaries, setSummaries] = useState<InterviewSummary[]>([])
   const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [summariesLoadedFor, setSummariesLoadedFor] = useState<string | null>(null)
+  const loadingSummaries = Boolean(user) && summariesLoadedFor !== user?.uid
 
   useEffect(() => {
     if (!authReady || !user) return
 
+    const uid = user.uid
     fetchInterviewSummaries()
       .then(setSummaries)
       .catch((summaryFetchError: unknown) => {
         setSummaryError((summaryFetchError as Error).message || 'Unable to load saved summaries.')
       })
+      .finally(() => setSummariesLoadedFor(uid))
   }, [authReady, user])
 
   const guestSessions = sessions.filter((session) => session.status === 'ACTIVE')
@@ -35,9 +39,8 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
       {summaryError ? <p className="text-sm text-rose-300">{summaryError}</p> : null}
-      {loading && <p className="text-slate-400">Loading sessions...</p>}
+      {loadingSummaries && <p className="text-slate-400">Loading your history...</p>}
 
       <div className="grid gap-6">
         {user ? (

@@ -1,7 +1,6 @@
 import axios from 'axios'
 import type {
   Difficulty,
-  InterviewExitReason,
   InterviewMessage,
   InterviewScorecard,
   InterviewSession,
@@ -10,9 +9,12 @@ import type {
   QuestionSet,
 } from '../types/interview'
 import { getAuthToken } from './authToken'
+import { getSessionAccessKey, saveSessionAccessKey } from './browserSessionStorage'
+
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -50,19 +52,27 @@ client.interceptors.response.use(
   },
 )
 
+/** Proves this browser created the session; signed-in users are also recognised by their token. */
+function sessionHeaders(sessionId: string): Record<string, string> {
+  const accessKey = getSessionAccessKey(sessionId)
+  return accessKey ? { 'X-Session-Key': accessKey } : {}
+}
+
 export const startInterview = async (interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet) => {
-  const response = await client.post<{ session: InterviewSession }>('/interviews/start', {
+  const response = await client.post<{ session: InterviewSession; accessKey: string }>('/interviews/start', {
     interviewType,
     difficulty,
     questionSet,
   })
+  saveSessionAccessKey(response.data.session.id, response.data.accessKey)
   return response.data.session
 }
 
 export const sendInterviewMessage = async (sessionId: string, message: string) => {
-  const response = await client.post<{ aiMessage: InterviewMessage; session: InterviewSession }>(
+  const response = await client.post<{ aiMessage: InterviewMessage | null; session: InterviewSession; summary?: InterviewSummary | null }>(
     `/interviews/${sessionId}/message`,
     { message },
+    { headers: sessionHeaders(sessionId) },
   )
   return response.data
 }
@@ -70,47 +80,44 @@ export const sendInterviewMessage = async (sessionId: string, message: string) =
 export const completeInterview = async (sessionId: string) => {
   const response = await client.post<{ scorecard: InterviewScorecard; session: InterviewSession; summary?: InterviewSummary | null }>(
     `/interviews/${sessionId}/complete`,
+    undefined,
+    { headers: sessionHeaders(sessionId) },
   )
   return response.data
 }
 
 export const fetchInterviewSession = async (sessionId: string) => {
-  const response = await client.get<{ session: InterviewSession }>(`/interviews/${sessionId}`)
+  const response = await client.get<{ session: InterviewSession }>(`/interviews/${sessionId}`, {
+    headers: sessionHeaders(sessionId),
+  })
   return response.data.session
 }
 
-export const fetchInterviewSessions = async () => {
-  const response = await client.get<{ sessions: InterviewSession[] }>('/interviews')
-  return response.data.sessions
-}
-
-export const transcribeVoice = async (audioBase64: string, mimeType: string) => {
-  const response = await client.post<{ transcript: string }>('/interviews/transcribe', {
-    audioBase64,
-    mimeType,
-  })
+export const transcribeVoice = async (sessionId: string, audioBase64: string, mimeType: string) => {
+  const response = await client.post<{ transcript: string }>(
+    '/interviews/transcribe',
+    { sessionId, audioBase64, mimeType },
+    { headers: sessionHeaders(sessionId) },
+  )
   return response.data.transcript
 }
 
-export const saveInterviewSummary = async (
-  sessionId: string,
-  exitReason: InterviewExitReason,
-  options?: { keepalive?: boolean; session?: InterviewSession },
-) => {
+/**
+ * Records a quit in the signed-in user's history. Uses `fetch` with `keepalive` so it can finish
+ * while the page unloads (unlike `sendBeacon`, it can carry the Authorization header).
+ */
+export const saveQuitSummary = async (sessionId: string, options?: { keepalive?: boolean }) => {
   const token = getAuthToken()
   if (!token) return null
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
-  const response = await fetch(`${baseUrl}/interviews/${sessionId}/summary`, {
+  const response = await fetch(`${baseURL}/interviews/${sessionId}/summary`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      ...sessionHeaders(sessionId),
     },
-    body: JSON.stringify({
-      exitReason,
-      session: options?.session,
-    }),
+    body: '{}',
     keepalive: options?.keepalive,
   })
 
