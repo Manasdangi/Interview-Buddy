@@ -8,7 +8,6 @@ vi.mock('./geminiService.js', () => ({
 
 vi.mock('./firebaseAdmin.js', () => ({
   getFirestoreDb: () => null,
-  getFirebaseAuth: async () => null,
 }))
 
 const gemini = await import('./geminiService.js')
@@ -17,6 +16,7 @@ const {
   completeInterviewSession,
   getAuthorizedSession,
   getDifficultyTrend,
+  resolveMove,
   startInterviewSession,
   toPublicSession,
 } = await import('./interviewSessionService.js')
@@ -138,5 +138,43 @@ describe('getDifficultyTrend', () => {
     expect(getDifficultyTrend(['STRONG', 'STRONG'])).toBe('RISING')
     expect(getDifficultyTrend(['WEAK', 'WEAK', 'MODERATE'])).toBe('EASING')
     expect(getDifficultyTrend(['UNKNOWN'])).toBe('STEADY')
+  })
+})
+
+describe('adaptive follow-ups', () => {
+  beforeEach(() => mockModel())
+
+  it('resolves moves: honours the model, defaults by quality, and caps follow-ups per topic', () => {
+    expect(resolveMove({ nextMove: 'SCALE', answerQuality: 'STRONG' }, 0)).toBe('SCALE')
+    expect(resolveMove({ nextMove: null, answerQuality: 'WEAK' }, 0)).toBe('HINT')
+    expect(resolveMove({ nextMove: null, answerQuality: 'WEAK' }, 1)).toBe('NEXT_TOPIC')
+    expect(resolveMove({ nextMove: null, answerQuality: 'MODERATE' }, 0)).toBe('PROBE_WHY')
+    expect(resolveMove({ nextMove: 'EDGE_CASE', answerQuality: 'MODERATE' }, 2)).toBe('NEXT_TOPIC')
+  })
+
+  it('stays on a topic for follow-ups and only advances on NEXT_TOPIC', async () => {
+    const { session, accessKey } = await startGuestSession()
+    const access = { uid: null, sessionKey: accessKey }
+    expect(session.interviewState.topicIndex).toBe(0)
+
+    generateJson.mockResolvedValueOnce(JSON.stringify({ answerQuality: 'MODERATE', gaps: ['cleanup'], nextMove: 'PROBE_WHY', message: 'Why?' }))
+    const afterFollowUp = (await addInterviewMessage(session.id, 'a1', access)).session
+    expect(afterFollowUp.interviewState).toMatchObject({ topicIndex: 0, followUpsOnTopic: 1, openGaps: ['cleanup'], lastMove: 'PROBE_WHY' })
+    expect(afterFollowUp.interviewState.lastQuestionTopic).toBe(session.interviewState.lastQuestionTopic)
+
+    generateJson.mockResolvedValueOnce(JSON.stringify({ answerQuality: 'STRONG', gaps: [], nextMove: 'NEXT_TOPIC', message: 'New topic?' }))
+    const afterNext = (await addInterviewMessage(session.id, 'a2', access)).session
+    expect(afterNext.interviewState).toMatchObject({ topicIndex: 1, followUpsOnTopic: 0, openGaps: [], lastMove: 'NEXT_TOPIC' })
+    expect(afterNext.interviewState.lastQuestionTopic).not.toBe(session.interviewState.lastQuestionTopic)
+  })
+
+  it('shows the model the full latest answer, not a digest', async () => {
+    const { session, accessKey } = await startGuestSession()
+    const longAnswer = `${'x'.repeat(900)}END_OF_ANSWER`
+    generateJson.mockClear()
+    await addInterviewMessage(session.id, longAnswer, { uid: null, sessionKey: accessKey })
+    const prompt = generateJson.mock.calls[0][0]
+    expect(prompt).toContain('END_OF_ANSWER')
+    expect(prompt).toContain('How to follow up')
   })
 })

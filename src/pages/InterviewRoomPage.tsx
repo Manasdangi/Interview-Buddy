@@ -1,15 +1,22 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Volume2, VolumeX } from 'lucide-react'
+import { Code2, Headphones, Volume2, VolumeX } from 'lucide-react'
 import { useInterviewStore } from '../store/interviewStore'
 import { ChatPanel } from '../components/interview/ChatPanel'
 import { InterviewControls } from '../components/interview/InterviewControls'
 import { InterviewTimer } from '../components/interview/InterviewTimer'
 import { ProblemStatement } from '../components/interview/ProblemStatement'
+import { VoiceInterviewBar } from '../components/interview/VoiceInterviewBar'
+import { useVoiceInterview } from '../hooks/useVoiceInterview'
+import { starterCode } from '../utils/starterCode'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Loader } from '../components/ui/Loader'
 import { saveQuitSummary as saveQuitSummaryApi } from '../services/interviewApi'
+
+// The editor pulls in the Sandpack bundler, so it only loads when the interview actually uses it.
+const CodeEditorPanel = lazy(() => import('../components/interview/CodeEditorPanel'))
+const maxMessageLength = 12_000
 
 export default function InterviewRoomPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -17,6 +24,12 @@ export default function InterviewRoomPage() {
   const { currentSession, loadingSession, sending, completing, error, loadSession, sendAnswer, completeInterview, resetInterview } = useInterviewStore()
   const [pendingVoiceTranscript, setPendingVoiceTranscript] = useState<string | null>(null)
   const [voiceReplies, setVoiceReplies] = useState(true)
+  const [voiceInterview, setVoiceInterview] = useState(false)
+  const [showEditor, setShowEditor] = useState<boolean | null>(null)
+  const [attachCode, setAttachCode] = useState(true)
+  const [attachError, setAttachError] = useState<string | null>(null)
+  const [codeEdited, setCodeEdited] = useState(false)
+  const editorCodeRef = useRef('')
   const controlsRef = useRef<HTMLDivElement | null>(null)
   const lastAutoScrolledMessageIdRef = useRef<string | null>(null)
   const lastSpokenMessageIdRef = useRef<string | null>(null)
@@ -25,6 +38,42 @@ export default function InterviewRoomPage() {
   const historyGuardArmedRef = useRef(false)
   const quitSummarySavedForRef = useRef<string | null>(null)
   const hasActiveInterview = currentSession?.status === 'ACTIVE'
+  const latestMessage = currentSession?.messages.at(-1)
+  const pendingQuestion = hasActiveInterview && latestMessage?.role === 'AI' ? { id: latestMessage.id, content: latestMessage.content } : null
+
+  // Machine-coding rounds open the editor by default; other rounds can still turn it on.
+  const editorOpen = showEditor ?? currentSession?.interviewType === 'ROUND_2'
+
+  const handleCodeChange = useCallback((code: string) => {
+    editorCodeRef.current = code
+    const edited = code.trim().length > 0 && code.trim() !== starterCode.trim()
+    setCodeEdited((current) => (current === edited ? current : edited))
+  }, [])
+
+  // Typed and spoken answers both carry the editor code once the candidate has edited it.
+  const handleSend = useCallback(
+    async (message: string) => {
+      const shouldAttach = editorOpen && attachCode && codeEdited
+      const fullMessage = shouldAttach ? `${message}\n\n\`\`\`tsx\n${editorCodeRef.current.trim()}\n\`\`\`` : message
+
+      if (fullMessage.length > maxMessageLength) {
+        setAttachError(`Your answer plus code is ${fullMessage.length - maxMessageLength} characters over the ${maxMessageLength} limit. Shorten the code or untick "Attach my code".`)
+        return false
+      }
+
+      setAttachError(null)
+      return sendAnswer(fullMessage)
+    },
+    [attachCode, codeEdited, editorOpen, sendAnswer],
+  )
+
+  const voice = useVoiceInterview({
+    enabled: voiceInterview && hasActiveInterview,
+    sessionId: sessionId ?? '',
+    pendingQuestion,
+    onSubmit: handleSend,
+    onTranscript: setPendingVoiceTranscript,
+  })
 
   const saveQuitSummary = async () => {
     if (!currentSession || currentSession.status !== 'ACTIVE') return
@@ -71,25 +120,26 @@ export default function InterviewRoomPage() {
   }, [currentSession?.id, currentSession?.status, navigate])
 
   useEffect(() => {
-    if (!voiceReplies || typeof window === 'undefined' || !window.speechSynthesis) return
+    // Voice interview mode reads the questions itself, so this effect only serves the plain "Voice replies" toggle.
+    if (!voiceReplies || voiceInterview || typeof window === 'undefined' || !window.speechSynthesis) return
 
-    const latestMessage = currentSession?.messages.at(-1)
-    if (!latestMessage || latestMessage.role !== 'AI' || latestMessage.id === lastSpokenMessageIdRef.current) return
+    const newest = currentSession?.messages.at(-1)
+    if (!newest || newest.role !== 'AI' || newest.id === lastSpokenMessageIdRef.current) return
 
-    lastSpokenMessageIdRef.current = latestMessage.id
+    lastSpokenMessageIdRef.current = newest.id
     window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(latestMessage.content)
+    const utterance = new SpeechSynthesisUtterance(newest.content)
     utterance.rate = 0.95
     window.speechSynthesis.speak(utterance)
-  }, [currentSession?.messages, voiceReplies])
+  }, [currentSession?.messages, voiceReplies, voiceInterview])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const latestMessage = currentSession?.messages.at(-1)
-    if (!latestMessage || latestMessage.role !== 'AI' || latestMessage.id === lastAutoScrolledMessageIdRef.current) return
+    const newest = currentSession?.messages.at(-1)
+    if (!newest || newest.role !== 'AI' || newest.id === lastAutoScrolledMessageIdRef.current) return
 
-    lastAutoScrolledMessageIdRef.current = latestMessage.id
+    lastAutoScrolledMessageIdRef.current = newest.id
     const frameId = window.requestAnimationFrame(() => {
       controlsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
     })
@@ -231,20 +281,28 @@ export default function InterviewRoomPage() {
     return <p className="text-slate-300">Preparing interview session...</p>
   }
 
-  const handleSend = async (message: string) => {
-    return sendAnswer(message)
-  }
-
   const handleComplete = async () => {
     await completeInterview()
   }
 
+  // The time limit ends the interview like a real round: whatever was answered so far gets scored.
+  const handleTimeUp = () => {
+    if (currentSession.status === 'ACTIVE' && !completing) {
+      void completeInterview()
+    }
+  }
+
   return (
     <div className="grid gap-8 xl:grid-cols-[320px_1fr]">
-      <div className="space-y-6">
+      <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
         <ProblemStatement session={currentSession} />
         <Card className="rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
-          <InterviewTimer startedAt={currentSession.startedAt} completedAt={currentSession.completedAt} />
+          <InterviewTimer
+            startedAt={currentSession.startedAt}
+            completedAt={currentSession.completedAt}
+            messages={currentSession.messages}
+            onTimeUp={handleTimeUp}
+          />
           <div className="mt-6 space-y-3 text-slate-400">
             <p className="text-sm font-medium text-white">Interview flow</p>
             <p>Answer each prompt clearly. The interviewer will follow up based on your response.</p>
@@ -261,23 +319,44 @@ export default function InterviewRoomPage() {
               <h2 className="mt-2 text-2xl font-semibold text-white">AI Interview Chat</h2>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
+              <Button variant={editorOpen ? 'primary' : 'secondary'} className="gap-2" onClick={() => setShowEditor(!editorOpen)}>
+                <Code2 className="h-4 w-4" />
+                Code editor
+              </Button>
               <Button
-                variant={voiceReplies ? 'primary' : 'secondary'}
+                variant={voiceInterview ? 'primary' : 'secondary'}
                 className="gap-2"
+                disabled={!voice.supported || !hasActiveInterview}
+                title={voice.supported ? 'The interviewer speaks and listens hands-free' : 'Voice recording is not supported in this browser'}
                 onClick={() => {
-                  if (voiceReplies) {
-                    stopSpeech()
-                  }
-                  setVoiceReplies((current) => !current)
+                  stopSpeech()
+                  setVoiceInterview((current) => !current)
                 }}
               >
-                {voiceReplies ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                Voice replies
+                <Headphones className="h-4 w-4" />
+                {voiceInterview ? 'Voice interview on' : 'Voice interview'}
               </Button>
-              <Button variant="secondary" className="gap-2" onClick={stopSpeech}>
-                <VolumeX className="h-4 w-4" />
-                Stop speech
-              </Button>
+              {voiceInterview ? null : (
+                <>
+                  <Button
+                    variant={voiceReplies ? 'primary' : 'secondary'}
+                    className="gap-2"
+                    onClick={() => {
+                      if (voiceReplies) {
+                        stopSpeech()
+                      }
+                      setVoiceReplies((current) => !current)
+                    }}
+                  >
+                    {voiceReplies ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                    Voice replies
+                  </Button>
+                  <Button variant="secondary" className="gap-2" onClick={stopSpeech}>
+                    <VolumeX className="h-4 w-4" />
+                    Stop speech
+                  </Button>
+                </>
+              )}
               <Button
                 variant="ghost"
                 onClick={async () => {
@@ -296,6 +375,47 @@ export default function InterviewRoomPage() {
           </div>
         </Card>
 
+        {editorOpen ? (
+          <Card className="space-y-4 rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Machine coding</p>
+                <h2 className="mt-1 text-xl font-semibold text-white">Code editor with live preview</h2>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={attachCode}
+                  onChange={(event) => setAttachCode(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-600 bg-slate-900"
+                />
+                Attach my code to my answer{attachCode && !codeEdited ? ' (once you edit it)' : ''}
+              </label>
+            </div>
+            <Suspense fallback={<Loader />}>
+              <CodeEditorPanel sessionId={currentSession.id} onCodeChange={handleCodeChange} />
+            </Suspense>
+            {attachError ? <p className="text-sm text-rose-300">{attachError}</p> : null}
+          </Card>
+        ) : null}
+
+        {voiceInterview && hasActiveInterview ? (
+          <VoiceInterviewBar
+            phase={voice.phase}
+            level={voice.level}
+            error={voice.error}
+            voices={voice.voices}
+            voiceName={voice.voiceName}
+            canRetrySend={voice.canRetrySend}
+            onVoiceChange={voice.setVoiceName}
+            onSkipSpeaking={voice.skipSpeaking}
+            onFinishAnswer={voice.finishAnswer}
+            onAnswerNow={voice.answerNow}
+            onRetrySend={voice.retrySend}
+            onStop={() => setVoiceInterview(false)}
+          />
+        ) : null}
+
         <div ref={controlsRef}>
           <InterviewControls
             onSubmit={handleSend}
@@ -305,6 +425,7 @@ export default function InterviewRoomPage() {
             sessionId={currentSession.id}
             loading={sending || completing}
             disabled={currentSession.status === 'COMPLETED'}
+            voiceLocked={voiceInterview}
           />
         </div>
       </div>

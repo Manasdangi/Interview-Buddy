@@ -53,6 +53,8 @@ describe('parseInterviewTurn', () => {
     expect(parseInterviewTurn('{"answerQuality":"STRONG","message":"Next question?"}')).toEqual({
       answerQuality: 'STRONG',
       message: 'Next question?',
+      gaps: [],
+      nextMove: null,
     })
   })
 
@@ -61,6 +63,40 @@ describe('parseInterviewTurn', () => {
   })
 
   it('falls back to the raw text when the reply is not JSON', () => {
-    expect(parseInterviewTurn('What is a closure?')).toEqual({ answerQuality: 'UNKNOWN', message: 'What is a closure?' })
+    expect(parseInterviewTurn('What is a closure?')).toEqual({ answerQuality: 'UNKNOWN', message: 'What is a closure?', gaps: [], nextMove: null })
+  })
+
+  it('reads the follow-up move and the gaps the candidate left', () => {
+    const turn = parseInterviewTurn(
+      JSON.stringify({ answerQuality: 'MODERATE', nextMove: 'EDGE_CASE', gaps: ['stale closure', 'cleanup', 'deps', 'extra'], message: 'What if the id changes mid-flight?' }),
+    )
+    expect(turn.nextMove).toBe('EDGE_CASE')
+    expect(turn.gaps).toEqual(['stale closure', 'cleanup', 'deps'])
+  })
+
+  it('ignores an unknown move', () => {
+    expect(parseInterviewTurn('{"answerQuality":"STRONG","nextMove":"RANT","message":"Next?"}').nextMove).toBeNull()
+  })
+})
+
+describe('parseScorecard rubric and question reviews', () => {
+  const rubric = { correctness: 7, depth: 6, communication: 8, edgeCases: 4, tradeOffs: 5 }
+  const review = { question: 'What is a closure?', answerSummary: 'Said it captures variables.', score: 6, feedback: 'Good start, missed stale closures.', idealAnswer: 'A function plus its lexical environment.' }
+
+  it('keeps a valid rubric and reviews', () => {
+    const scorecard = parseScorecard(JSON.stringify({ ...validScorecard, rubric, questionReviews: [review] }))
+    expect(scorecard?.rubric).toEqual(rubric)
+    expect(scorecard?.questionReviews).toEqual([review])
+  })
+
+  it('drops a malformed rubric or reviews instead of failing the whole report', () => {
+    const scorecard = parseScorecard(JSON.stringify({
+      ...validScorecard,
+      rubric: { correctness: 7 },
+      questionReviews: [{ question: 'x' }, 'nope', { ...review, score: 'high' }],
+    }))
+    expect(scorecard).not.toBeNull()
+    expect(scorecard?.rubric).toBeUndefined()
+    expect(scorecard?.questionReviews).toBeUndefined()
   })
 })
