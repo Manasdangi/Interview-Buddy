@@ -3,6 +3,7 @@ import type {
   AnswerQuality,
   Difficulty,
   DifficultyTrend,
+  FollowUpMove,
   InterviewState,
   InterviewScorecard,
   InterviewSession,
@@ -12,8 +13,8 @@ import type {
 } from '../types/interview.js'
 import { HttpError } from '../utils/httpError.js'
 import { generateJson, generateText, transcribeAudio } from './geminiService.js'
-import { buildScorecardPrompt, createInterviewPrompt } from './interviewPromptService.js'
-import { interviewTurnSchema, parseInterviewTurn, parseScorecard, scorecardSchema } from './aiResponseParsing.js'
+import { buildScorecardPrompt, createInterviewPrompt, maxFollowUpsPerTopic } from './interviewPromptService.js'
+import { interviewTurnSchema, parseInterviewTurn, parseScorecard, scorecardSchema, type ParsedInterviewTurn } from './aiResponseParsing.js'
 import { createId } from '../utils/id.js'
 import {
   createInterviewSession,
@@ -30,12 +31,14 @@ export type SessionAccess = {
 
 const interviewTypes: InterviewType[] = ['ROUND_1', 'ROUND_2', 'SYSTEM_DESIGN']
 const difficulties: Difficulty[] = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED']
-const defaultMaxQuestions = 5
+// Counts every interviewer turn: the daily topics plus the follow-ups that dig into them.
+const defaultMaxQuestions = 8
 const defaultQuestionSet: QuestionSet = 1
 const promptStateHistoryLimit = 4
 const scorecardAttempts = 2
 const turnLockMs = 90_000
-export const maxAnswerLength = 8_000
+// Room for a written answer plus the code from the editor.
+export const maxAnswerLength = 12_000
 const sessionNotFoundMessage = 'Session not found. Please start a new interview.'
 
 function normalizeQuestionSet(questionSet?: unknown): QuestionSet {
@@ -95,6 +98,10 @@ function createInterviewState(): InterviewState {
     lastQuestionTopic: null,
     lastAnswerQuality: 'UNKNOWN',
     recentAnswerQualities: [],
+    topicIndex: 0,
+    followUpsOnTopic: 0,
+    openGaps: [],
+    lastMove: null,
   }
 }
 
@@ -106,6 +113,7 @@ function ensureInterviewState(session: StoredInterviewSession) {
     candidateStrengths: session.interviewState?.candidateStrengths ?? [],
     candidateWeakAreas: session.interviewState?.candidateWeakAreas ?? [],
     recentAnswerQualities: session.interviewState?.recentAnswerQualities ?? [],
+    openGaps: session.interviewState?.openGaps ?? [],
   }
 
   return session
@@ -147,9 +155,9 @@ function uniquePush(items: string[], value: string, limit = 5) {
   return next.slice(-limit)
 }
 
-function getTopicForQuestion(session: InterviewSession, questionNumber: number) {
+function getCurrentTopic(session: InterviewSession) {
   const dailyVariant = getSessionDailyVariant(session)
-  const topicIndex = Math.max(0, Math.min(dailyVariant.topicPath.length - 1, questionNumber - 1))
+  const topicIndex = Math.max(0, Math.min(dailyVariant.topicPath.length - 1, session.interviewState.topicIndex))
   return dailyVariant.topicPath[topicIndex] ?? null
 }
 
@@ -170,13 +178,52 @@ export function getDifficultyTrend(recentAnswerQualities: AnswerQuality[]): Diff
 }
 
 function updateStateAfterQuestion(session: InterviewSession) {
-  const topic = getTopicForQuestion(session, session.currentQuestionCount)
+  const topic = getCurrentTopic(session)
 
   session.interviewState = {
     ...session.interviewState,
     questionNumber: session.currentQuestionCount,
     lastQuestionTopic: topic,
     askedTopics: topic ? uniquePush(session.interviewState.askedTopics, topic) : session.interviewState.askedTopics,
+  }
+}
+
+/** Default move when the model does not name one: dig deeper after good answers, hint after weak ones. */
+function defaultMove(quality: AnswerQuality, followUpsOnTopic: number): FollowUpMove {
+  if (quality === 'STRONG') return 'SCALE'
+  if (quality === 'MODERATE') return 'PROBE_WHY'
+  if (quality === 'WEAK') return followUpsOnTopic === 0 ? 'HINT' : 'NEXT_TOPIC'
+  return 'NEXT_TOPIC'
+}
+
+/** The interviewer stays on a topic for follow-ups, but never more than maxFollowUpsPerTopic of them. */
+export function resolveMove(turn: Pick<ParsedInterviewTurn, 'nextMove' | 'answerQuality'>, followUpsOnTopic: number): FollowUpMove {
+  if (followUpsOnTopic >= maxFollowUpsPerTopic) return 'NEXT_TOPIC'
+  return turn.nextMove ?? defaultMove(turn.answerQuality, followUpsOnTopic)
+}
+
+/** Moves the topic pointer (or counts a follow-up) according to the move the interviewer just made. */
+function applyMoveToState(session: InterviewSession, turn: ParsedInterviewTurn) {
+  const state = session.interviewState
+  const move = resolveMove(turn, state.followUpsOnTopic)
+  const lastTopicIndex = Math.max(0, getSessionDailyVariant(session).topicPath.length - 1)
+
+  if (move === 'NEXT_TOPIC') {
+    session.interviewState = {
+      ...state,
+      topicIndex: Math.min(state.topicIndex + 1, lastTopicIndex),
+      followUpsOnTopic: 0,
+      openGaps: [],
+      lastMove: move,
+    }
+    return
+  }
+
+  session.interviewState = {
+    ...state,
+    followUpsOnTopic: state.followUpsOnTopic + 1,
+    openGaps: turn.gaps.length ? turn.gaps : state.openGaps,
+    lastMove: move,
   }
 }
 
@@ -250,7 +297,7 @@ async function generateScorecard(session: InterviewSession): Promise<InterviewSc
   )
 
   for (let attempt = 0; attempt < scorecardAttempts; attempt += 1) {
-    const scorecard = parseScorecard(await generateJson(prompt, 'Generate the scorecard.', scorecardSchema))
+    const scorecard = parseScorecard(await generateJson(prompt, 'Generate the scorecard.', scorecardSchema, { long: true }))
     if (scorecard) return scorecard
   }
 
@@ -318,6 +365,7 @@ export async function addInterviewMessage(sessionId: string | undefined, message
       await generateJson(prompt, 'Assess the latest candidate answer and continue the interview.', interviewTurnSchema),
     )
     updateStateAfterAnswer(current, turn.answerQuality)
+    applyMoveToState(current, turn)
 
     const nextMessage = createMessage('AI', turn.message)
     current.messages.push(nextMessage)

@@ -34,7 +34,12 @@ export default function ResultsPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-        <ScoreCard scorecard={currentSession.scorecard} />
+        <ScoreCard
+          scorecard={currentSession.scorecard}
+          messages={currentSession.messages}
+          startedAt={currentSession.startedAt}
+          completedAt={currentSession.completedAt}
+        />
         <Card className="rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
           <div className="space-y-5">
             <div>

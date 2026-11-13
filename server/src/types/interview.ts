@@ -12,11 +12,33 @@ export type AnswerQuality = 'UNKNOWN' | 'WEAK' | 'MODERATE' | 'STRONG'
 
 export type DifficultyTrend = 'STEADY' | 'EASING' | 'RISING'
 
+export type FollowUpMove = 'HINT' | 'PROBE_WHY' | 'EDGE_CASE' | 'SCALE' | 'CHANGE_REQUIREMENT' | 'NEXT_TOPIC'
+
 export type InterviewMessage = {
   id: string
   role: MessageRole
   content: string
   createdAt: string
+}
+
+export type RubricScores = {
+  correctness: number
+  depth: number
+  communication: number
+  edgeCases: number
+  tradeOffs: number
+}
+
+export type QuestionReview = {
+  /** The interviewer's question (shortened), as the evaluator saw it. */
+  question: string
+  topic?: string
+  /** One or two sentences on what the candidate actually said. */
+  answerSummary: string
+  score: number
+  feedback: string
+  /** What a strong answer would have covered. */
+  idealAnswer: string
 }
 
 export type InterviewScorecard = {
@@ -30,6 +52,9 @@ export type InterviewScorecard = {
   improvements: string[]
   recommendedTopics: string[]
   finalFeedback: string
+  /** Absent on scorecards generated before the rubric was introduced. */
+  rubric?: RubricScores
+  questionReviews?: QuestionReview[]
 }
 
 export type DailyQuestionVariant = {
@@ -47,6 +72,13 @@ export type InterviewState = {
   lastQuestionTopic: string | null
   lastAnswerQuality: AnswerQuality
   recentAnswerQualities: AnswerQuality[]
+  /** Index into the daily topic path of the topic currently being discussed. */
+  topicIndex: number
+  /** Follow-ups already asked on the current topic (the interviewer moves on after a few). */
+  followUpsOnTopic: number
+  /** Specific concepts the candidate missed on the current topic, used to aim the next follow-up. */
+  openGaps: string[]
+  lastMove: FollowUpMove | null
 }
 
 export type InterviewSession = {

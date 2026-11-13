@@ -49,7 +49,6 @@ function getServiceAccountFromEnv(): FirebaseServiceAccount | null {
 }
 
 const defaultAppName = '[DEFAULT]'
-const tokenVerifierAppName = 'token-verifier'
 
 function findApp(name: string) {
   return getApps().find((app) => app.name === name) ?? null
@@ -76,25 +75,8 @@ function getFirebaseAdminApp() {
   )
 }
 
-// Verifying ID tokens only needs the project id, so sign-in still works without service account credentials.
-function getTokenVerifierApp() {
-  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID
-  if (!projectId) return null
-
-  return findApp(tokenVerifierAppName) ?? initializeApp({ projectId }, tokenVerifierAppName)
-}
-
 export function getFirestoreDb() {
   const app = getFirebaseAdminApp()
   return app ? getFirestore(app) : null
 }
 
-export async function getFirebaseAuth() {
-  const app = getFirebaseAdminApp() ?? getTokenVerifierApp()
-  if (!app) {
-    return null
-  }
-
-  const { getAuth } = await import('firebase-admin/auth')
-  return getAuth(app)
-}

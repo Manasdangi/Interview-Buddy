@@ -12,6 +12,8 @@ type InterviewControlsProps = {
   sessionId: string
   loading: boolean
   disabled: boolean
+  /** True while hands-free voice interview mode owns the microphone. */
+  voiceLocked?: boolean
 }
 
 function getPreferredMimeType() {
@@ -35,7 +37,7 @@ function stopStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((track) => track.stop())
 }
 
-export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceTranscript, sessionId, loading, disabled }: InterviewControlsProps) {
+export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceTranscript, sessionId, loading, disabled, voiceLocked = false }: InterviewControlsProps) {
   const [input, setInput] = useState('')
   const [processingVoice, setProcessingVoice] = useState(false)
   const [recording, setRecording] = useState(false)
@@ -258,7 +260,7 @@ export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceT
               variant={recording && !liveMode ? 'primary' : 'secondary'}
               className="gap-2 px-4 py-2"
               onClick={() => (recording && !liveMode ? stopRecording() : startRecording('dictate'))}
-              disabled={!supportsVoice || loading || disabled || liveMode || processingVoice}
+              disabled={!supportsVoice || voiceLocked || loading || disabled || liveMode || processingVoice}
             >
               {recording && !liveMode ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               Dictate
@@ -268,7 +270,7 @@ export function InterviewControls({ onSubmit, onComplete, onVoiceStart, onVoiceT
               variant={liveMode ? 'primary' : 'secondary'}
               className="gap-2 px-4 py-2"
               onClick={() => (liveMode ? stopLiveMode() : startRecording('live'))}
-              disabled={!supportsVoice || loading || disabled || (recording && !liveMode) || processingVoice}
+              disabled={!supportsVoice || voiceLocked || loading || disabled || (recording && !liveMode) || processingVoice}
             >
               {liveMode ? <MicOff className="h-4 w-4" /> : <Radio className="h-4 w-4" />}
               {liveMode ? 'Finish' : 'Live'}

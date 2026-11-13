@@ -13,9 +13,11 @@
     "test": "cd server && npm test"
   },
   "dependencies": {
+    "@codesandbox/sandpack-react": "^2.20.0",
     "axios": "^1.5.0",
     "firebase": "^12.14.0",
     "firebase-admin": "^14.0.0",
+    "jose": "^6.2.17",
     "lucide-react": "^0.481.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

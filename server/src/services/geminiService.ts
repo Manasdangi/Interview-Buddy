@@ -4,6 +4,8 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash'
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 const TEXT_TIMEOUT_MS = 25_000
 const AUDIO_TIMEOUT_MS = 40_000
+// The report writes an ideal answer per question, which takes noticeably longer than a chat turn.
+const REPORT_TIMEOUT_MS = 50_000
 const MAX_RETRIES = 1
 const RETRYABLE_STATUSES = new Set([500, 502, 503, 504])
 
@@ -132,8 +134,12 @@ export function generateText(systemPrompt: string, userPrompt: string) {
 }
 
 /** Returns raw JSON text constrained by `responseSchema`; callers still validate the shape. */
-export function generateJson(systemPrompt: string, userPrompt: string, responseSchema: GeminiSchema) {
-  return callGemini(buildTextPayload(systemPrompt, userPrompt, responseSchema), 'Gemini could not generate a response.', TEXT_TIMEOUT_MS)
+export function generateJson(systemPrompt: string, userPrompt: string, responseSchema: GeminiSchema, options?: { long?: boolean }) {
+  return callGemini(
+    buildTextPayload(systemPrompt, userPrompt, responseSchema),
+    'Gemini could not generate a response.',
+    options?.long ? REPORT_TIMEOUT_MS : TEXT_TIMEOUT_MS,
+  )
 }
 
 export function transcribeAudio(audioBase64: string, mimeType: string) {

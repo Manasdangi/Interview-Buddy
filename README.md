@@ -10,7 +10,11 @@ Interview Buddy is a React + TypeScript + Vite MVP that simulates a frontend int
 - Five question-set variants for every difficulty level
 - AI interviewer chat flow with follow-ups and one-question-at-a-time behavior
 - Backend-powered session storage with Express, Firestore, and Gemini
-- Results scorecard with evaluation and recommended topics
+- Adaptive interviewer: sees your full answer (and code), picks a follow-up type (hint, why, edge case, scale, changed requirement) and only moves topic after at most two follow-ups
+- 45-minute countdown, a per-question timer, and auto-complete when time runs out
+- Hands-free voice interview: the interviewer speaks, the mic opens, and your answer is sent when you pause
+- Round 2 code editor (Sandpack) with live React preview; your code is attached to your answer
+- Interview report: rubric (correctness, depth, communication, edge cases, trade-offs), top 3 fixes, per-question ideal answers and pacing
 
 ## Run locally
 
@@ -61,6 +65,8 @@ On Vercel, add the same values in Project Settings > Environment Variables. With
 
 Sign-in tokens are verified with Firebase Admin, which only needs `FIREBASE_PROJECT_ID` (or `VITE_FIREBASE_PROJECT_ID`).
 
+Sign-in tokens are verified with `jose` against Google's public Firebase keys (not `firebase-admin/auth`, whose `jwks-rsa` dependency crashes on Vercel with `ERR_REQUIRE_ESM`).
+
 The Express server only accepts browser requests from `CORS_ORIGINS` (comma-separated, default `http://localhost:5173`).
 
 The frontend Firebase web config is loaded from `VITE_FIREBASE_*` environment variables. These values enable Google sign-in in the browser. The private Firebase Admin credentials stay server-side only.
@@ -84,6 +90,12 @@ Business logic lives in `server/src/http/handlers.ts`; the Express routes and th
 ```bash
 npm test
 ```
+
+This runs the server tests plus the pure-logic tests next to the frontend utilities (`src/utils`).
+
+## Deploying to Vercel
+
+`vercel.json` rewrites every non-API path to `index.html` (so refreshing `/dashboard` works) and gives the API functions up to 60 seconds, which the interview report needs.
 
 ## Notes
 
