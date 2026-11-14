@@ -22,7 +22,7 @@ afterEach(() => {
 })
 
 describe('generateJson', () => {
-  it('forces a schema-shaped tool call and returns the tool input as JSON text', async () => {
+  it('asks for a schema-shaped tool call (without forcing it) and returns the tool input as JSON text', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ stop_reason: 'tool_use', content: [{ type: 'tool_use', input: { message: 'Why?' } }] }))
 
     const result = await generateJson('system prompt', 'user prompt', schema)
@@ -34,10 +34,11 @@ describe('generateJson', () => {
     const body = JSON.parse(init.body)
     expect(body).toMatchObject({
       model: 'claude-sonnet-5-5',
-      system: 'system prompt',
       messages: [{ role: 'user', content: 'user prompt' }],
-      tool_choice: { type: 'tool', name: 'respond' },
+      tool_choice: { type: 'auto' },
     })
+    expect(body.system).toContain('system prompt')
+    expect(body.system).toContain('calling the "respond" tool')
     expect(body.tools[0].input_schema).toEqual(schema)
   })
 
@@ -76,8 +77,13 @@ describe('generateJson', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ stop_reason: 'max_tokens', content: [{ type: 'tool_use', input: { message: 'cut' } }] }))
     await expect(generateJson('s', 'u', schema)).rejects.toMatchObject({ statusCode: 502 })
 
-    fetchMock.mockResolvedValueOnce(jsonResponse({ content: [{ type: 'text', text: 'no tool call' }] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ content: [] }))
     await expect(generateJson('s', 'u', schema)).rejects.toMatchObject({ statusCode: 502 })
+  })
+
+  it('falls back to the text when the model answers without calling the tool', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ content: [{ type: 'text', text: '```json\n{"message":"Hi"}\n```' }] }))
+    await expect(generateJson('s', 'u', schema)).resolves.toContain('"message":"Hi"')
   })
 
   it('fails clearly when the API key is missing', async () => {

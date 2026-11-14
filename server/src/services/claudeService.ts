@@ -28,7 +28,7 @@ type ClaudePayload = {
   system: string
   messages: Array<{ role: 'user'; content: string }>
   tools?: Array<{ name: string; description: string; input_schema: JsonSchema }>
-  tool_choice?: { type: 'tool'; name: string }
+  tool_choice?: { type: 'auto' }
 }
 
 /** Standard JSON Schema (lowercase types) describing the object Claude must return. */
@@ -118,13 +118,16 @@ function buildPayload(systemPrompt: string, userPrompt: string, maxTokens: numbe
   return {
     model: getModel(),
     max_tokens: maxTokens,
-    system: systemPrompt,
+    system: schema
+      ? `${systemPrompt}\n\nAlways give your final answer by calling the "${JSON_TOOL_NAME}" tool exactly once, with input that matches its schema. Do not answer in plain text.`
+      : systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
-    // Forcing a single tool whose input schema is ours makes Claude return a schema-shaped JSON object.
+    // A tool whose input schema is ours makes Claude return a schema-shaped JSON object. tool_choice stays "auto"
+    // because some models reject forced tool use ("tool"/"any"); the system prompt asks for the tool instead.
     ...(schema
       ? {
           tools: [{ name: JSON_TOOL_NAME, description: 'Return the final answer as structured data.', input_schema: schema }],
-          tool_choice: { type: 'tool' as const, name: JSON_TOOL_NAME },
+          tool_choice: { type: 'auto' as const },
         }
       : {}),
   }
@@ -152,8 +155,14 @@ export async function generateJson(systemPrompt: string, userPrompt: string, sch
   if (data.stop_reason === 'max_tokens') {
     throw new HttpError(502, 'Claude\'s response was cut off. Please retry.')
   }
-  if (!toolUse || toolUse.input === undefined || toolUse.input === null) {
+  if (toolUse && toolUse.input !== undefined && toolUse.input !== null) {
+    return JSON.stringify(toolUse.input)
+  }
+
+  // The model answered in text instead of calling the tool: hand back the text for the tolerant JSON parser.
+  const text = (data.content ?? []).map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('').trim()
+  if (!text) {
     throw new HttpError(502, 'Claude returned an empty response. Please retry.')
   }
-  return JSON.stringify(toolUse.input)
+  return text
 }
