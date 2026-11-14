@@ -16,7 +16,9 @@ const { parseScorecard } = await import('./aiResponseParsing.js')
 
 describe('company catalog', () => {
   it('has unique ids and every round has enough distinct topics for varied attempts', () => {
+    expect(companies.length).toBeGreaterThanOrEqual(100)
     expect(new Set(companies.map((company) => company.id)).size).toBe(companies.length)
+    expect(new Set(companies.map((company) => company.name)).size).toBe(companies.length)
     for (const company of companies) {
       expect(company.rounds.map((round) => round.type).sort()).toEqual(['ROUND_1', 'ROUND_2', 'SYSTEM_DESIGN'])
       for (const round of company.rounds) {

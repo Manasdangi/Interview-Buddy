@@ -70,7 +70,7 @@ export const roleDefinitions: Record<CompanyRoleLevel, RoleDefinition> = {
 export const companyCategoryLabels: Record<CompanyCategory, string> = {
   BIG_TECH: 'Big Tech',
   INDIAN_PRODUCT: 'Indian product',
-  FINTECH: 'Fintech',
+  FINTECH: 'Fintech & banking',
   SAAS_ENTERPRISE: 'SaaS & enterprise',
   STARTUP: 'Top startups',
 }
@@ -134,7 +134,7 @@ function pick(base: string[], count: number, offset = 0) {
   return Array.from({ length: Math.min(count, base.length) }, (_, index) => base[(index + offset) % base.length])
 }
 
-export const companies: Company[] = [
+const curatedCompanies: Company[] = [
   {
     id: 'amazon',
     name: 'Amazon',
@@ -1077,6 +1077,292 @@ export const companies: Company[] = [
     ],
   },
 ]
+
+// ---------------------------------------------------------------------------------------------------------------
+// Expanded catalog: companies built from an interview archetype (how the loop is commonly reported to run) plus
+// company-specific build tasks and design prompts, so each company still feels like its own product.
+// ---------------------------------------------------------------------------------------------------------------
+
+type Archetype = 'DSA_HEAVY' | 'MACHINE_CODING' | 'STARTUP' | 'ENTERPRISE' | 'BANKING'
+
+type CompanySpec = {
+  id: string
+  name: string
+  category: CompanyCategory
+  archetype: Archetype
+  tagline: string
+  /** Two company-flavoured UI build tasks for the coding round. */
+  build: [string, string]
+  /** Two company-flavoured frontend design prompts. */
+  design: [string, string]
+  behavioral?: string
+}
+
+type ArchetypeRound = Omit<CompanyRoundBlueprint, 'type' | 'topics' | 'behavioralTopic'> & { baseTopics: (offset: number) => string[] }
+
+const archetypes: Record<Archetype, { bar: (name: string) => string; rounds: Record<CompanyRoundType, ArchetypeRound> }> = {
+  DSA_HEAVY: {
+    bar: (name) =>
+      `${name}'s frontend loop is commonly reported to be algorithm-heavy: data-structure problems solved in JavaScript, a frontend coding round and, for experienced hires, frontend system design. Clear reasoning about complexity matters.`,
+    rounds: {
+      ROUND_1: {
+        title: 'DSA in JavaScript',
+        durationMinutes: 60,
+        format: 'One or two data-structure problems solved in JavaScript, then JavaScript fundamentals.',
+        interviewerStyle: 'Expects you to clarify, discuss brute force, optimise and state complexity before coding.',
+        baseTopics: (offset) => [
+          'Array / string problem with optimal time and space complexity',
+          'Hash map or set based counting problem',
+          'Tree or graph traversal in JavaScript',
+          'Sliding window or two-pointer problem',
+          ...pick(jsCore, 4, offset),
+        ],
+      },
+      ROUND_2: {
+        title: 'Frontend coding',
+        durationMinutes: 60,
+        format: 'Build a UI component in React or vanilla JavaScript and discuss edge cases.',
+        interviewerStyle: 'Wants working code first, then accessibility, performance and tests.',
+        baseTopics: (offset) => pick(machineCodingCore, 5, offset),
+      },
+      SYSTEM_DESIGN: {
+        title: 'Frontend system design',
+        durationMinutes: 60,
+        format: 'Design a large-scale frontend product surface end to end.',
+        interviewerStyle: 'Pushes on scale, performance budgets and failure handling.',
+        baseTopics: (offset) => pick(systemDesignCore, 6, offset),
+      },
+    },
+  },
+  MACHINE_CODING: {
+    bar: (name) =>
+      `${name}'s frontend loop is commonly reported to centre on a timed machine coding round, with a JavaScript/React deep dive and a design round for experienced roles. Working, modular code within the time box is key.`,
+    rounds: {
+      ROUND_1: {
+        title: 'JavaScript & React deep dive',
+        durationMinutes: 60,
+        format: 'JavaScript internals, React behaviour and output-based snippets.',
+        interviewerStyle: 'Asks layered "why" questions until you reach the underlying mechanism.',
+        baseTopics: (offset) => [...pick(jsCore, 5, offset), ...pick(reactCore, 3, offset), 'Implement a polyfill for a common Array or Promise method'],
+      },
+      ROUND_2: {
+        title: 'Machine coding',
+        durationMinutes: 90,
+        format: 'Build a feature-complete mini-app from a spec within the time limit, then walk through it.',
+        interviewerStyle: 'Checks working functionality, then modularity, extensibility and edge cases.',
+        baseTopics: (offset) => pick(machineCodingCore, 5, offset),
+      },
+      SYSTEM_DESIGN: {
+        title: 'Frontend system design',
+        durationMinutes: 60,
+        format: 'Design a high-traffic consumer frontend.',
+        interviewerStyle: 'Focuses on rendering strategy, caching and peak-traffic behaviour.',
+        baseTopics: (offset) => pick(systemDesignCore, 6, offset),
+      },
+    },
+  },
+  STARTUP: {
+    bar: (name) =>
+      `${name} is commonly reported to run a startup-style loop: practical JavaScript/React, a machine coding round and a design or hiring-manager discussion. Ownership and speed of execution are valued.`,
+    rounds: {
+      ROUND_1: {
+        title: 'JavaScript & React',
+        durationMinutes: 60,
+        format: 'Core JavaScript and React with practical, write-it-now snippets.',
+        interviewerStyle: 'Fast-paced and pragmatic; ties questions to real product problems.',
+        baseTopics: (offset) => [...pick(jsCore, 4, offset), ...pick(reactCore, 3, offset), ...pick(cssCore, 1, offset)],
+      },
+      ROUND_2: {
+        title: 'Machine coding',
+        durationMinutes: 75,
+        format: 'Build a product feature in React within the time box.',
+        interviewerStyle: 'Wants a working build quickly, then asks for improvements.',
+        baseTopics: (offset) => pick(machineCodingCore, 5, offset),
+      },
+      SYSTEM_DESIGN: {
+        title: 'Design discussion',
+        durationMinutes: 60,
+        format: 'Design a core product flow and discuss trade-offs.',
+        interviewerStyle: 'Balances ideal architecture against shipping fast with a small team.',
+        baseTopics: (offset) => pick(systemDesignCore, 6, offset),
+      },
+    },
+  },
+  ENTERPRISE: {
+    bar: (name) =>
+      `${name}'s loop is commonly reported to mix CS/JavaScript fundamentals, component-level coding and a design round. Reusable, accessible components and maintainability at enterprise scale are recurring themes.`,
+    rounds: {
+      ROUND_1: {
+        title: 'JavaScript & CS fundamentals',
+        durationMinutes: 60,
+        format: 'A coding problem plus JavaScript, OOP and browser fundamentals.',
+        interviewerStyle: 'Methodical; mixes conceptual questions with small coding tasks.',
+        baseTopics: (offset) => [
+          'Coding problem in JavaScript with test cases',
+          'OOP in JavaScript: classes, composition and SOLID basics',
+          ...pick(jsCore, 5, offset),
+          'Web accessibility basics: semantics, labels and focus',
+        ],
+      },
+      ROUND_2: {
+        title: 'Component coding',
+        durationMinutes: 60,
+        format: 'Build a reusable, configurable component as you would for a product used by many teams or customers.',
+        interviewerStyle: 'Asks about component API design, accessibility and testing.',
+        baseTopics: (offset) => [...pick(machineCodingCore, 4, offset), ...pick(reactCore, 2, offset)],
+      },
+      SYSTEM_DESIGN: {
+        title: 'Design round',
+        durationMinutes: 60,
+        format: 'Design an enterprise web application or platform feature.',
+        interviewerStyle: 'Probes permissions, configurability, large data sets and maintainability.',
+        baseTopics: (offset) => pick(systemDesignCore, 6, offset),
+      },
+    },
+  },
+  BANKING: {
+    bar: (name) =>
+      `${name}'s technology loop is commonly reported to include a coding assessment, JavaScript/React fundamentals and a design discussion. Security, correctness and reliability are emphasised for financial products.`,
+    rounds: {
+      ROUND_1: {
+        title: 'Coding & JavaScript',
+        durationMinutes: 60,
+        format: 'A coding problem in JavaScript and JavaScript fundamentals.',
+        interviewerStyle: 'Careful and correctness-focused; asks about edge cases and testing.',
+        baseTopics: (offset) => [
+          'Coding problem with numbers and precision (currency rounding)',
+          'Data transformation problem on a list of transactions',
+          ...pick(jsCore, 5, offset),
+          'Frontend security: XSS, CSRF and secure storage of tokens',
+        ],
+      },
+      ROUND_2: {
+        title: 'React & UI coding',
+        durationMinutes: 60,
+        format: 'Build a data-heavy React component with validation and error states.',
+        interviewerStyle: 'Looks for defensive code, accessibility and clear state handling.',
+        baseTopics: (offset) => [...pick(machineCodingCore, 4, offset), ...pick(reactCore, 2, offset)],
+      },
+      SYSTEM_DESIGN: {
+        title: 'Design & architecture',
+        durationMinutes: 60,
+        format: 'Design a secure, reliable financial web application.',
+        interviewerStyle: 'Focuses on security, auditability, session handling and resilience.',
+        baseTopics: (offset) => pick(systemDesignCore, 6, offset),
+      },
+    },
+  },
+}
+
+const companySpecs: CompanySpec[] = [
+  // Big Tech & global product
+  { id: 'meta', name: 'Meta', category: 'BIG_TECH', archetype: 'DSA_HEAVY', tagline: 'Fast-paced coding rounds and product-scale frontend design.', build: ['News feed post composer with mentions and preview', 'Reactions picker with hover and keyboard support'], design: ['Design a social news feed with infinite scroll', 'Design a real-time comments system for live videos'], behavioral: 'Behavioural: a time you moved fast and handled conflict on a team' },
+  { id: 'netflix', name: 'Netflix', category: 'BIG_TECH', archetype: 'DSA_HEAVY', tagline: 'Senior-leaning loops focused on UI performance and ownership.', build: ['Horizontally scrolling title rows with lazy-loaded artwork', 'Video player controls with keyboard shortcuts'], design: ['Design a streaming home page personalised per profile', 'Design a TV-friendly UI with remote-control navigation'], behavioral: 'Culture: a time you exercised judgement with freedom and responsibility' },
+  { id: 'linkedin', name: 'LinkedIn', category: 'BIG_TECH', archetype: 'DSA_HEAVY', tagline: 'Coding, frontend craft and large-scale feed design.', build: ['Connection suggestions carousel with dismiss', 'Rich-text post editor with hashtags'], design: ['Design a professional feed with ranking and ads', 'Design a messaging inbox with typing indicators'] },
+  { id: 'airbnb', name: 'Airbnb', category: 'BIG_TECH', archetype: 'DSA_HEAVY', tagline: 'Product-minded coding and polished, accessible UI.', build: ['Listing search with map and list kept in sync', 'Date range picker with blocked nights'], design: ['Design a stays search results page with a map', 'Design a booking flow across devices'], behavioral: 'Core values: a time you went above and beyond for a user' },
+  { id: 'booking', name: 'Booking.com', category: 'BIG_TECH', archetype: 'DSA_HEAVY', tagline: 'Experimentation-driven travel UIs and solid fundamentals.', build: ['Hotel filters sidebar with live result counts', 'Room selection with price breakdown'], design: ['Design an A/B-testable search results page', 'Design a multi-language property page'] },
+  { id: 'agoda', name: 'Agoda', category: 'BIG_TECH', archetype: 'DSA_HEAVY', tagline: 'Travel search at scale with performance focus.', build: ['Hotel card list with lazy images and price badges', 'Guest and room selector popover'], design: ['Design a fast hotel search for slow networks', 'Design a deals page handling traffic spikes'] },
+  { id: 'oracle', name: 'Oracle', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Enterprise apps, fundamentals and component design.', build: ['Editable grid with inline validation', 'Hierarchical tree select'], design: ['Design an enterprise reporting dashboard', 'Design a role-based admin console'] },
+  { id: 'sap-labs', name: 'SAP Labs', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Business applications, UI5-style components and fundamentals.', build: ['Master-detail list with filters', 'Form with dependent dropdowns'], design: ['Design a procurement approval workflow UI', 'Design a configurable analytics dashboard'] },
+  { id: 'cisco', name: 'Cisco', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Networking dashboards, fundamentals and reliability.', build: ['Device status table with live updates', 'Topology list with expandable groups'], design: ['Design a network monitoring dashboard', 'Design a video meeting web client'] },
+  { id: 'intuit', name: 'Intuit', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Craft-focused coding and customer-first design.', build: ['Multi-step tax form with save and resume', 'Expense categoriser with bulk edit'], design: ['Design a small-business invoicing app', 'Design a guided form that adapts to answers'], behavioral: 'Values: a time you solved a real customer problem end to end' },
+  { id: 'servicenow', name: 'ServiceNow', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Workflow platforms and configurable UI components.', build: ['Ticket list with saved filters', 'Form builder field palette'], design: ['Design a no-code workflow builder', 'Design an IT service portal'] },
+  { id: 'workday', name: 'Workday', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'HR and finance apps with strong accessibility.', build: ['Org chart viewer with search', 'Leave request form with calendar'], design: ['Design an employee self-service portal', 'Design a payroll review dashboard'] },
+  { id: 'broadcom-vmware', name: 'Broadcom (VMware)', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Infrastructure consoles and data-heavy UIs.', build: ['Virtual machine list with bulk actions', 'Resource usage chart with time range picker'], design: ['Design a cloud infrastructure console', 'Design a multi-tenant admin dashboard'] },
+  { id: 'nutanix', name: 'Nutanix', category: 'SAAS_ENTERPRISE', archetype: 'DSA_HEAVY', tagline: 'Hybrid-cloud consoles, DSA and frontend depth.', build: ['Cluster health cards with polling', 'Wizard for creating a resource'], design: ['Design a hybrid-cloud management console', 'Design an alerts and events timeline'] },
+  { id: 'twilio', name: 'Twilio', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Developer-facing consoles and communication UIs.', build: ['API logs viewer with filters and pagination', 'Phone number search and purchase list'], design: ['Design a developer console with usage metrics', 'Design an embeddable chat widget'] },
+  { id: 'sprinklr', name: 'Sprinklr', category: 'SAAS_ENTERPRISE', archetype: 'MACHINE_CODING', tagline: 'Complex dashboards and machine coding.', build: ['Social inbox with assignment and tags', 'Widget-based dashboard with resize'], design: ['Design a unified customer experience dashboard', 'Design a real-time social listening feed'] },
+  { id: 'thoughtworks', name: 'Thoughtworks', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Pairing, clean code and test-driven development.', build: ['Shopping cart built test-first', 'Refactor a messy component into clean parts'], design: ['Design a micro-frontend architecture for a retailer', 'Design a CI-friendly frontend testing strategy'], behavioral: 'Collaboration: a time you paired or mentored to improve code quality' },
+  { id: 'publicis-sapient', name: 'Publicis Sapient', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Client-facing digital products and React fundamentals.', build: ['Product listing page with filters', 'Responsive navigation with mega menu'], design: ['Design a headless-CMS powered marketing site', 'Design a retail checkout for multiple brands'] },
+  // Banking & payments
+  { id: 'paypal', name: 'PayPal', category: 'FINTECH', archetype: 'DSA_HEAVY', tagline: 'Payments UIs, DSA and secure frontend design.', build: ['Send-money form with contact search and validation', 'Transaction activity list with filters'], design: ['Design a checkout embedded in merchant sites', 'Design a payments dashboard for merchants'] },
+  { id: 'visa', name: 'Visa', category: 'FINTECH', archetype: 'BANKING', tagline: 'Secure payments experiences and fundamentals.', build: ['Card details form with formatting and Luhn validation', 'Transaction dispute form'], design: ['Design a card management portal', 'Design a merchant onboarding flow'] },
+  { id: 'mastercard', name: 'Mastercard', category: 'FINTECH', archetype: 'BANKING', tagline: 'Payment products with security and accessibility.', build: ['Spending insights chart with categories', 'Card controls toggles with confirmation'], design: ['Design a cardholder rewards portal', 'Design a fraud alert review dashboard'] },
+  { id: 'amex', name: 'American Express', category: 'FINTECH', archetype: 'BANKING', tagline: 'Card servicing apps, fundamentals and design.', build: ['Statement viewer with filters and export', 'Payment scheduling form'], design: ['Design an online card account dashboard', 'Design an offers and rewards experience'] },
+  { id: 'goldman-sachs', name: 'Goldman Sachs', category: 'FINTECH', archetype: 'BANKING', tagline: 'Coding assessments and data-dense financial UIs.', build: ['Live price ticker table with sorting', 'Order entry form with validation'], design: ['Design a trading dashboard with streaming prices', 'Design a client reporting portal'] },
+  { id: 'jpmorgan', name: 'JPMorgan Chase', category: 'FINTECH', archetype: 'BANKING', tagline: 'Banking apps with React, security and reliability.', build: ['Account overview cards with balances', 'Payee management with verification'], design: ['Design an online banking dashboard', 'Design a secure document upload flow'] },
+  { id: 'morgan-stanley', name: 'Morgan Stanley', category: 'FINTECH', archetype: 'BANKING', tagline: 'Fundamentals-heavy loops and data-rich interfaces.', build: ['Portfolio holdings table with grouping', 'Performance chart with range selector'], design: ['Design a wealth management client portal', 'Design an internal analytics workspace'] },
+  { id: 'juspay', name: 'Juspay', category: 'FINTECH', archetype: 'MACHINE_CODING', tagline: 'Payment SDKs, functional thinking and machine coding.', build: ['Payment method selector with saved cards', 'UPI intent flow with status polling'], design: ['Design a cross-platform payment SDK UI', 'Design a payment orchestration dashboard'] },
+  { id: 'groww', name: 'Groww', category: 'FINTECH', archetype: 'MACHINE_CODING', tagline: 'Investing UIs, real-time prices and machine coding.', build: ['Stock watchlist with live prices', 'SIP calculator with chart'], design: ['Design a stock detail page with live charts', 'Design a mutual fund discovery flow'] },
+  { id: 'zerodha', name: 'Zerodha', category: 'FINTECH', archetype: 'STARTUP', tagline: 'Lean, performance-obsessed trading interfaces.', build: ['Market depth widget updating many times a second', 'Order window with keyboard shortcuts'], design: ['Design a trading terminal handling high-frequency ticks', 'Design a lightweight console for reports'] },
+  { id: 'upstox', name: 'Upstox', category: 'FINTECH', archetype: 'MACHINE_CODING', tagline: 'Trading apps, real-time data and machine coding.', build: ['Option chain table with live updates', 'Price alert creation form'], design: ['Design a real-time portfolio page', 'Design an onboarding and KYC flow'] },
+  { id: 'policybazaar', name: 'PolicyBazaar', category: 'FINTECH', archetype: 'MACHINE_CODING', tagline: 'Comparison funnels and conversion-focused UIs.', build: ['Insurance plan comparison table', 'Multi-step quote form with progress'], design: ['Design an insurance comparison funnel', 'Design a lead capture flow optimised for SEO'] },
+  { id: 'mobikwik', name: 'MobiKwik', category: 'FINTECH', archetype: 'STARTUP', tagline: 'Wallet and payments flows on mobile web.', build: ['Wallet top-up with amount chips', 'Bill payment form with saved billers'], design: ['Design a wallet home screen', 'Design a buy-now-pay-later checkout'] },
+  { id: 'bharatpe', name: 'BharatPe', category: 'FINTECH', archetype: 'STARTUP', tagline: 'Merchant payments and lending experiences.', build: ['Merchant settlement history list', 'Loan eligibility form'], design: ['Design a merchant dashboard for small shops', 'Design a QR payments transaction view'] },
+  { id: 'slice', name: 'slice', category: 'FINTECH', archetype: 'STARTUP', tagline: 'Design-led fintech with polished interactions.', build: ['Animated spend summary card', 'Repayment schedule view'], design: ['Design a card spends and rewards app', 'Design a savings goals feature'] },
+  { id: 'jupiter', name: 'Jupiter', category: 'FINTECH', archetype: 'STARTUP', tagline: 'Neobank UIs with clean React architecture.', build: ['Spending categories donut and list', 'Pots / savings jar creation flow'], design: ['Design a neobank home with insights', 'Design salary-day automation settings'] },
+  { id: 'navi', name: 'Navi', category: 'FINTECH', archetype: 'MACHINE_CODING', tagline: 'Lending and insurance flows built for scale.', build: ['Loan EMI calculator with sliders', 'Document upload with progress and retry'], design: ['Design an instant loan application flow', 'Design a health insurance claims tracker'] },
+  { id: 'indmoney', name: 'INDmoney', category: 'FINTECH', archetype: 'STARTUP', tagline: 'Wealth tracking and investing interfaces.', build: ['Net worth breakdown with charts', 'US stock search with suggestions'], design: ['Design a family net-worth tracker', 'Design a goal-based investing flow'] },
+  { id: 'pine-labs', name: 'Pine Labs', category: 'FINTECH', archetype: 'ENTERPRISE', tagline: 'Merchant platforms and payment dashboards.', build: ['Terminal transactions table with export', 'Offer configuration form'], design: ['Design a merchant analytics portal', 'Design a gift card management console'] },
+  { id: 'zeta', name: 'Zeta', category: 'FINTECH', archetype: 'ENTERPRISE', tagline: 'Banking-as-a-service platforms and components.', build: ['Card issuance form for bank admins', 'Configurable rules editor'], design: ['Design a white-label banking app framework', 'Design a bank operations console'] },
+  { id: 'acko', name: 'Acko', category: 'FINTECH', archetype: 'STARTUP', tagline: 'Digital insurance funnels and claims UX.', build: ['Car insurance quote form with vehicle lookup', 'Claim status timeline'], design: ['Design a fully digital insurance purchase flow', 'Design a self-serve claims experience'] },
+  { id: 'jar', name: 'Jar', category: 'FINTECH', archetype: 'STARTUP', tagline: 'Micro-savings with delightful, simple UI.', build: ['Daily savings streak tracker', 'Gold price card with buy flow'], design: ['Design an automated round-up savings feature', 'Design a gamified savings journey'] },
+  // Indian product companies
+  { id: 'myntra', name: 'Myntra', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Fashion e-commerce, machine coding and performance.', build: ['Product listing with size and brand filters', 'Wishlist with move-to-bag'], design: ['Design a fashion product listing page for sale events', 'Design a virtual try-on entry experience'] },
+  { id: 'nykaa', name: 'Nykaa', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Beauty commerce with rich content and UGC.', build: ['Product reviews with photo uploads', 'Shade selector component'], design: ['Design a content-plus-commerce product page', 'Design a loyalty and offers hub'] },
+  { id: 'reliance-jio', name: 'Reliance Jio', category: 'INDIAN_PRODUCT', archetype: 'ENTERPRISE', tagline: 'Massive-scale consumer apps and platforms.', build: ['Recharge plans browser with comparisons', 'Content carousel for a TV app'], design: ['Design a super-app shell hosting many services', 'Design a streaming app for low bandwidth'] },
+  { id: 'jiohotstar', name: 'JioHotstar', category: 'INDIAN_PRODUCT', archetype: 'DSA_HEAVY', tagline: 'Streaming at cricket-final scale.', build: ['Live score overlay updating in real time', 'Episode list with continue-watching'], design: ['Design a live sports streaming page for tens of millions', 'Design a personalised home with trays'] },
+  { id: 'tata-1mg', name: 'Tata 1mg', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Health commerce and SEO-heavy pages.', build: ['Medicine search with substitutes', 'Prescription upload with preview'], design: ['Design an SEO-friendly medicine detail page', 'Design a lab test booking flow'] },
+  { id: 'pharmeasy', name: 'PharmEasy', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Healthcare ordering flows and machine coding.', build: ['Cart with prescription-required items', 'Delivery slot selector'], design: ['Design a medicine reorder experience', 'Design a diagnostics booking funnel'] },
+  { id: 'practo', name: 'Practo', category: 'INDIAN_PRODUCT', archetype: 'STARTUP', tagline: 'Doctor discovery and appointment booking.', build: ['Doctor slot picker by day', 'Clinic search with filters'], design: ['Design a doctor discovery and booking flow', 'Design a video consultation web client'] },
+  { id: 'lenskart', name: 'Lenskart', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Eyewear commerce with interactive product UIs.', build: ['Frame filter with shape and size', 'Lens package selector with price updates'], design: ['Design a 3D try-on product page', 'Design an omnichannel store-pickup flow'] },
+  { id: 'urban-company', name: 'Urban Company', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Service booking flows and strong machine coding.', build: ['Service package builder with add-ons', 'Time-slot picker with availability'], design: ['Design a home services booking flow', 'Design a professional partner app web view'] },
+  { id: 'ola', name: 'Ola', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Mobility UIs with maps and real-time state.', build: ['Ride type selector with fare estimates', 'Saved places manager'], design: ['Design a ride booking web app with live tracking', 'Design an EV scooter purchase flow'] },
+  { id: 'rapido', name: 'Rapido', category: 'INDIAN_PRODUCT', archetype: 'STARTUP', tagline: 'Fast-moving mobility products.', build: ['Pickup and drop location search', 'Ride history list with filters'], design: ['Design a bike-taxi booking flow on mobile web', 'Design a captain earnings dashboard'] },
+  { id: 'makemytrip', name: 'MakeMyTrip', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Travel search, SSR and machine coding.', build: ['Flight results with filters and sort', 'Seat map selector'], design: ['Design a flight search results page', 'Design a holiday package builder'] },
+  { id: 'cleartrip', name: 'Cleartrip', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Clean, fast travel booking UIs.', build: ['Fare calendar with lowest prices', 'Traveller details form'], design: ['Design a fast flight booking flow', 'Design a trip itinerary page'] },
+  { id: 'oyo', name: 'OYO', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Hotel booking and partner tools.', build: ['Hotel listing with map toggle', 'Coupon apply widget'], design: ['Design a budget hotel search experience', 'Design a hotel owner dashboard'] },
+  { id: 'ixigo', name: 'ixigo', category: 'INDIAN_PRODUCT', archetype: 'STARTUP', tagline: 'Train and travel utilities at scale.', build: ['Train availability grid by class', 'PNR status tracker'], design: ['Design a train search and booking flow', 'Design a running-status tracker'] },
+  { id: 'bigbasket', name: 'BigBasket', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Grocery commerce and large catalogues.', build: ['Category browser with quantity steppers', 'Smart basket suggestions list'], design: ['Design a grocery catalogue with thousands of SKUs', 'Design a scheduled delivery checkout'] },
+  { id: 'blinkit', name: 'Blinkit', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Quick-commerce speed and live inventory.', build: ['Product grid with live stock badges', 'Cart with out-of-stock reconciliation'], design: ['Design a 10-minute delivery storefront', 'Design an order tracking page with rider location'] },
+  { id: 'licious', name: 'Licious', category: 'INDIAN_PRODUCT', archetype: 'STARTUP', tagline: 'D2C commerce with delivery slots.', build: ['Product cut selector with weights', 'Delivery slot picker'], design: ['Design a D2C storefront with subscriptions', 'Design a recipe-to-cart experience'] },
+  { id: 'delhivery', name: 'Delhivery', category: 'INDIAN_PRODUCT', archetype: 'ENTERPRISE', tagline: 'Logistics dashboards and operations tools.', build: ['Shipment tracking timeline', 'Bulk shipment upload with validation'], design: ['Design a logistics control tower dashboard', 'Design a shipper self-serve portal'] },
+  { id: 'cardekho', name: 'CarDekho', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Auto marketplace with SEO and comparisons.', build: ['Car comparison table', 'Used car filters with price range'], design: ['Design an SEO-heavy car model page', 'Design a used-car listing marketplace'] },
+  { id: 'cars24', name: 'Cars24', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Used-car buying and selling flows.', build: ['Car inspection report viewer', 'Sell-car valuation form'], design: ['Design a used-car buying funnel', 'Design a test-drive booking flow'] },
+  { id: 'info-edge', name: 'Info Edge (Naukri)', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Job search, SEO and recruiter tools.', build: ['Job search with filters and saved searches', 'Resume upload with parsing preview'], design: ['Design a job search results page', 'Design a recruiter candidate pipeline'] },
+  { id: 'dream11', name: 'Dream11', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Fantasy sports under massive traffic spikes.', build: ['Team builder with role constraints and credits', 'Live leaderboard with rank changes'], design: ['Design a contest page for a cricket final', 'Design live score and points updates'] },
+  { id: 'mpl', name: 'MPL', category: 'INDIAN_PRODUCT', archetype: 'STARTUP', tagline: 'Gaming platform UIs and real-time features.', build: ['Tournament list with countdowns', 'Wallet with deposit and withdraw states'], design: ['Design a multi-game tournament platform', 'Design a real-time leaderboard'] },
+  { id: 'games24x7', name: 'Games24x7', category: 'INDIAN_PRODUCT', archetype: 'DSA_HEAVY', tagline: 'Game UIs, DSA and performance.', build: ['Card game table layout with animations', 'Lobby with filters and quick join'], design: ['Design a real-time multiplayer game lobby', 'Design a responsible-gaming limits feature'] },
+  { id: 'sharechat', name: 'ShareChat', category: 'INDIAN_PRODUCT', archetype: 'DSA_HEAVY', tagline: 'Vernacular social feeds at huge scale.', build: ['Short-video feed with autoplay in view', 'Language selector with transliteration'], design: ['Design a vernacular content feed', 'Design a live audio rooms experience'] },
+  { id: 'inmobi', name: 'InMobi', category: 'INDIAN_PRODUCT', archetype: 'DSA_HEAVY', tagline: 'Ad-tech dashboards and lock-screen experiences.', build: ['Campaign performance table with charts', 'Ad preview builder'], design: ['Design an advertiser campaign manager', 'Design a lightweight content feed for lock screens'] },
+  { id: 'unacademy', name: 'Unacademy', category: 'INDIAN_PRODUCT', archetype: 'MACHINE_CODING', tagline: 'Live learning and video-first products.', build: ['Course curriculum accordion with progress', 'Live class chat with polls'], design: ['Design a live class experience for thousands of learners', 'Design a test series and results page'] },
+  { id: 'physicswallah', name: 'PhysicsWallah', category: 'INDIAN_PRODUCT', archetype: 'STARTUP', tagline: 'Affordable ed-tech at massive scale.', build: ['Batch listing with filters', 'Doubt submission with image upload'], design: ['Design a video lecture platform for low bandwidth', 'Design a practice quiz engine'] },
+  { id: 'upgrad', name: 'upGrad', category: 'INDIAN_PRODUCT', archetype: 'STARTUP', tagline: 'Online degree and learning platforms.', build: ['Program comparison cards', 'Assignment submission flow'], design: ['Design a learner dashboard', 'Design a course discovery and lead funnel'] },
+  { id: 'vedantu', name: 'Vedantu', category: 'INDIAN_PRODUCT', archetype: 'STARTUP', tagline: 'Interactive live tutoring products.', build: ['Interactive whiteboard toolbar', 'Class schedule calendar'], design: ['Design a live interactive classroom', 'Design a parent progress report'] },
+  { id: 'zoho', name: 'Zoho', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Product suite engineering with strong fundamentals.', build: ['Spreadsheet-like editable grid', 'Email compose with attachments'], design: ['Design a web-based office suite shell', 'Design a CRM pipeline board'] },
+  { id: 'freshworks', name: 'Freshworks', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Customer-service SaaS and reusable components.', build: ['Ticket detail view with conversation thread', 'Canned responses picker'], design: ['Design a helpdesk agent workspace', 'Design an embeddable support widget'] },
+  { id: 'postman', name: 'Postman', category: 'SAAS_ENTERPRISE', archetype: 'MACHINE_CODING', tagline: 'Developer tools with complex editors.', build: ['Request builder with params and headers tabs', 'JSON response viewer with collapse'], design: ['Design an API client in the browser', 'Design collaborative workspaces with sync'] },
+  { id: 'browserstack', name: 'BrowserStack', category: 'SAAS_ENTERPRISE', archetype: 'MACHINE_CODING', tagline: 'Testing infrastructure and dev-tool UIs.', build: ['Test run results table with logs', 'Device and browser picker'], design: ['Design a live browser testing session UI', 'Design a test analytics dashboard'] },
+  { id: 'chargebee', name: 'Chargebee', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Subscription billing and finance UIs.', build: ['Plan and add-on configurator', 'Invoice list with status filters'], design: ['Design a subscription management portal', 'Design a revenue analytics dashboard'] },
+  { id: 'innovaccer', name: 'Innovaccer', category: 'SAAS_ENTERPRISE', archetype: 'ENTERPRISE', tagline: 'Healthcare data platforms and design systems.', build: ['Patient list with risk filters', 'Care plan task checklist'], design: ['Design a care coordination dashboard', 'Design a healthcare design system'] },
+  { id: 'harness', name: 'Harness', category: 'SAAS_ENTERPRISE', archetype: 'DSA_HEAVY', tagline: 'CI/CD platforms and pipeline UIs.', build: ['Pipeline stage graph viewer', 'Deployment logs streaming viewer'], design: ['Design a visual pipeline editor', 'Design a deployment verification dashboard'] },
+  { id: 'rippling', name: 'Rippling', category: 'SAAS_ENTERPRISE', archetype: 'DSA_HEAVY', tagline: 'Workforce platform with demanding coding rounds.', build: ['Employee directory with custom fields', 'Approval chain editor'], design: ['Design an HR platform with app integrations', 'Design a policy rules builder'] },
+  { id: 'tekion', name: 'Tekion', category: 'SAAS_ENTERPRISE', archetype: 'MACHINE_CODING', tagline: 'Automotive retail cloud and complex workflows.', build: ['Vehicle inventory table with filters', 'Service appointment scheduler'], design: ['Design a dealer management system UI', 'Design a digital car-buying flow'] },
+]
+
+function buildCompany(spec: CompanySpec, index: number): Company {
+  const archetype = archetypes[spec.archetype]
+  const offset = index % 8
+  const round = (type: CompanyRoundType, specific: string[], behavioralTopic?: string): CompanyRoundBlueprint => {
+    const { baseTopics, ...rest } = archetype.rounds[type]
+    return { type, ...rest, topics: [...specific, ...baseTopics(offset)], ...(behavioralTopic ? { behavioralTopic } : {}) }
+  }
+
+  return {
+    id: spec.id,
+    name: spec.name,
+    category: spec.category,
+    tagline: spec.tagline,
+    bar: archetype.bar(spec.name),
+    rounds: [
+      round('ROUND_1', []),
+      round('ROUND_2', [...spec.build]),
+      round('SYSTEM_DESIGN', [...spec.design], spec.behavioral),
+    ],
+  }
+}
+
+export const companies: Company[] = [...curatedCompanies, ...companySpecs.map(buildCompany)]
 
 export function findCompany(companyId: unknown): Company | undefined {
   return typeof companyId === 'string' ? companies.find((company) => company.id === companyId) : undefined
