@@ -1,55 +1,55 @@
 import type { AnswerQuality, FollowUpMove, InterviewScorecard, QuestionReview, RubricScores } from '../types/interview.js'
-import type { GeminiSchema } from './geminiService.js'
+import type { JsonSchema } from './claudeService.js'
 
 const answerQualities: AnswerQuality[] = ['UNKNOWN', 'WEAK', 'MODERATE', 'STRONG']
 export const followUpMoves: FollowUpMove[] = ['HINT', 'PROBE_WHY', 'EDGE_CASE', 'SCALE', 'CHANGE_REQUIREMENT', 'NEXT_TOPIC']
 
-export const interviewTurnSchema: GeminiSchema = {
-  type: 'OBJECT',
+export const interviewTurnSchema: JsonSchema = {
+  type: 'object',
   properties: {
-    answerQuality: { type: 'STRING', enum: ['WEAK', 'MODERATE', 'STRONG'] },
-    gaps: { type: 'ARRAY', items: { type: 'STRING' } },
-    nextMove: { type: 'STRING', enum: followUpMoves },
-    message: { type: 'STRING' },
+    answerQuality: { type: 'string', enum: ['WEAK', 'MODERATE', 'STRONG'] },
+    gaps: { type: 'array', items: { type: 'string' } },
+    nextMove: { type: 'string', enum: followUpMoves },
+    message: { type: 'string' },
   },
   required: ['answerQuality', 'gaps', 'nextMove', 'message'],
 }
 
-export const scorecardSchema: GeminiSchema = {
-  type: 'OBJECT',
+export const scorecardSchema: JsonSchema = {
+  type: 'object',
   properties: {
-    overallScore: { type: 'NUMBER' },
-    technicalScore: { type: 'NUMBER' },
-    communicationScore: { type: 'NUMBER' },
-    problemSolvingScore: { type: 'NUMBER' },
-    depthScore: { type: 'NUMBER' },
-    strengths: { type: 'ARRAY', items: { type: 'STRING' } },
-    weaknesses: { type: 'ARRAY', items: { type: 'STRING' } },
-    improvements: { type: 'ARRAY', items: { type: 'STRING' } },
-    recommendedTopics: { type: 'ARRAY', items: { type: 'STRING' } },
-    finalFeedback: { type: 'STRING' },
+    overallScore: { type: 'number' },
+    technicalScore: { type: 'number' },
+    communicationScore: { type: 'number' },
+    problemSolvingScore: { type: 'number' },
+    depthScore: { type: 'number' },
+    strengths: { type: 'array', items: { type: 'string' } },
+    weaknesses: { type: 'array', items: { type: 'string' } },
+    improvements: { type: 'array', items: { type: 'string' } },
+    recommendedTopics: { type: 'array', items: { type: 'string' } },
+    finalFeedback: { type: 'string' },
     rubric: {
-      type: 'OBJECT',
+      type: 'object',
       properties: {
-        correctness: { type: 'NUMBER' },
-        depth: { type: 'NUMBER' },
-        communication: { type: 'NUMBER' },
-        edgeCases: { type: 'NUMBER' },
-        tradeOffs: { type: 'NUMBER' },
+        correctness: { type: 'number' },
+        depth: { type: 'number' },
+        communication: { type: 'number' },
+        edgeCases: { type: 'number' },
+        tradeOffs: { type: 'number' },
       },
       required: ['correctness', 'depth', 'communication', 'edgeCases', 'tradeOffs'],
     },
     questionReviews: {
-      type: 'ARRAY',
+      type: 'array',
       items: {
-        type: 'OBJECT',
+        type: 'object',
         properties: {
-          question: { type: 'STRING' },
-          topic: { type: 'STRING' },
-          answerSummary: { type: 'STRING' },
-          score: { type: 'NUMBER' },
-          feedback: { type: 'STRING' },
-          idealAnswer: { type: 'STRING' },
+          question: { type: 'string' },
+          topic: { type: 'string' },
+          answerSummary: { type: 'string' },
+          score: { type: 'number' },
+          feedback: { type: 'string' },
+          idealAnswer: { type: 'string' },
         },
         required: ['question', 'answerSummary', 'score', 'feedback', 'idealAnswer'],
       },

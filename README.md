@@ -9,7 +9,7 @@ Interview Buddy is a React + TypeScript + Vite MVP that simulates a frontend int
 - Beginner, Intermediate, and Advanced difficulty selection
 - Five question-set variants for every difficulty level
 - AI interviewer chat flow with follow-ups and one-question-at-a-time behavior
-- Backend-powered session storage with Express, Firestore, and Gemini
+- Backend-powered session storage with Express, Firestore, and the Claude API
 - Adaptive interviewer: sees your full answer (and code), picks a follow-up type (hint, why, edge case, scale, changed requirement) and only moves topic after at most two follow-ups
 - 45-minute countdown, a per-question timer, and auto-complete when time runs out
 - Hands-free voice interview: the interviewer speaks, the mic opens, and your answer is sent when you pause
@@ -53,7 +53,7 @@ cd .. && npm run dev
 
 ## Backend configuration
 
-The Gemini API key is loaded from `server/.env` as `GEMINI_API_KEY`.
+The Claude API key is loaded from `server/.env` as `ANTHROPIC_API_KEY` (model: `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`). Claude's API does not accept audio, so voice answers are still transcribed with `GEMINI_API_KEY`; without it, typed answers keep working.
 
 Interview sessions are persisted to Firestore when Firebase Admin credentials are configured. For local development, copy `server/.env.example` to `server/.env` and fill one of these credential options:
 
@@ -99,7 +99,7 @@ This runs the server tests plus the pure-logic tests next to the frontend utilit
 
 ## Notes
 
-- The Gemini API key is loaded from `server/.env`
+- The Claude API key is loaded from `server/.env`
 - Firestore stores interview sessions when Firebase Admin credentials are configured
 - Tailwind CSS is used for a dark, modern UI
 - For local backend development, run `cd server && npm run dev`; it now watches for file changes and reloads automatically

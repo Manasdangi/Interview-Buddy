@@ -12,7 +12,8 @@ import type {
   StoredInterviewSession,
 } from '../types/interview.js'
 import { HttpError } from '../utils/httpError.js'
-import { generateJson, generateText, transcribeAudio } from './geminiService.js'
+import { generateJson, generateText } from './claudeService.js'
+import { transcribeAudio } from './transcriptionService.js'
 import { buildScorecardPrompt, createInterviewPrompt, maxFollowUpsPerTopic } from './interviewPromptService.js'
 import { interviewTurnSchema, parseInterviewTurn, parseScorecard, scorecardSchema, type ParsedInterviewTurn } from './aiResponseParsing.js'
 import { createId } from '../utils/id.js'

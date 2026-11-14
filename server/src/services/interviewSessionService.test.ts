@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('./geminiService.js', () => ({
+vi.mock('./claudeService.js', () => ({
   generateText: vi.fn(async () => 'Question 1: what is a closure?'),
   generateJson: vi.fn(),
+}))
+
+vi.mock('./transcriptionService.js', () => ({
   transcribeAudio: vi.fn(async () => 'spoken answer'),
 }))
 
@@ -10,7 +13,7 @@ vi.mock('./firebaseAdmin.js', () => ({
   getFirestoreDb: () => null,
 }))
 
-const gemini = await import('./geminiService.js')
+const claude = await import('./claudeService.js')
 const {
   addInterviewMessage,
   completeInterviewSession,
@@ -34,7 +37,7 @@ const scorecardJson = JSON.stringify({
   finalFeedback: 'ok',
 })
 
-const generateJson = vi.mocked(gemini.generateJson)
+const generateJson = vi.mocked(claude.generateJson)
 
 function mockModel() {
   generateJson.mockImplementation(async (_system, user) =>
