@@ -74,7 +74,7 @@ export const startInterview: ApiHandler = async (req) => {
 
   const body = getBody(req)
   const { session, accessKey } = await startInterviewSession(
-    { interviewType: body.interviewType, difficulty: body.difficulty, questionSet: body.questionSet },
+    { interviewType: body.interviewType, difficulty: body.difficulty, questionSet: body.questionSet, companyId: body.companyId, role: body.role },
     access.uid,
   )
   return { status: 201, body: { session: toPublicSession(session), accessKey } }

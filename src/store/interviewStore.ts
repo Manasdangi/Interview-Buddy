@@ -10,6 +10,7 @@ import {
   fetchInterviewSession,
   sendInterviewMessage,
   startInterview,
+  type CompanyStartOptions,
 } from '../services/interviewApi'
 import { loadActiveBrowserSession, saveActiveBrowserSession } from '../services/browserSessionStorage'
 import { formatErrorMessage } from '../utils/errorMessage'
@@ -22,7 +23,12 @@ type InterviewState = {
   completing: boolean
   loadingSession: boolean
   error: string | null
-  startInterview: (interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet) => Promise<InterviewSession | null>
+  startInterview: (
+    interviewType: InterviewType,
+    difficulty: Difficulty,
+    questionSet?: QuestionSet,
+    company?: CompanyStartOptions,
+  ) => Promise<InterviewSession | null>
   sendAnswer: (message: string) => Promise<boolean>
   completeInterview: () => Promise<void>
   setCurrentSession: (session: InterviewSession | null) => void
@@ -45,10 +51,10 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
   loadingSession: false,
   error: null,
 
-  startInterview: async (interviewType, difficulty, questionSet) => {
+  startInterview: async (interviewType, difficulty, questionSet, company) => {
     set({ starting: true, error: null })
     try {
-      const session = await startInterview(interviewType, difficulty, questionSet)
+      const session = await startInterview(interviewType, difficulty, questionSet, company)
       saveActiveBrowserSession(session)
       set((state) => ({ currentSession: session, sessions: replaceSession(state.sessions, session) }))
       return session

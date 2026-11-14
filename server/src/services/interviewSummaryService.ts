@@ -21,6 +21,9 @@ function buildInterviewSummary(session: InterviewSession, uid: string, exitReaso
     interviewType: session.interviewType,
     difficulty: session.difficulty,
     questionSet: session.questionSet,
+    ...(session.company
+      ? { companyName: session.company.companyName, roleLabel: session.company.roleLabel, roundTitle: session.company.roundTitle }
+      : {}),
     status: session.status,
     exitReason,
     questionsAsked: session.currentQuestionCount,

@@ -44,7 +44,11 @@ export default function ResultsPage() {
           <div className="space-y-5">
             <div>
               <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Session summary</p>
-              <p className="mt-2 text-slate-300">{currentSession.interviewType.replace('_', ' ')} • {currentSession.difficulty.toLowerCase()}</p>
+              <p className="mt-2 text-slate-300">
+                {currentSession.company
+                  ? `${currentSession.company.companyName} · ${currentSession.company.roundTitle} · ${currentSession.company.roleLabel}`
+                  : `${currentSession.interviewType.replace('_', ' ')} • ${currentSession.difficulty.toLowerCase()}`}
+              </p>
             </div>
             <div className="rounded-3xl border border-slate-800/80 bg-slate-900 p-4">
               <p className="text-sm font-semibold text-white">Recommended topics</p>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import { companies } from '../../shared/companyCatalog'
 
 const cards = [
   {
@@ -28,13 +29,26 @@ export default function HomePage() {
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-indigo-300">Interview Buddy</p>
           <h1 className="mt-6 text-5xl font-semibold text-white sm:text-6xl">Practice frontend interviews with an AI interviewer.</h1>
           <p className="mt-5 max-w-2xl text-slate-400">
-            Practice frontend interviews for Round 1, Round 2, and System Design with a responsive AI interviewer that asks one question at a time.
+            Pick a company and role — Amazon, Flipkart, PhonePe, Atlassian and more — and take a mock round modelled on how that company's
+            frontend interviews are commonly reported to run. Timed, adaptive follow-ups, voice mode, code editor and a detailed report. Free.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link to="/companies">
+              <Button>Company mock interviews</Button>
+            </Link>
             <Link to="/select-interview">
-              <Button>Start Practice</Button>
+              <Button variant="secondary">General practice</Button>
             </Link>
           </div>
+          <p className="mt-6 text-sm text-slate-500">
+            Popular:{' '}
+            {companies.slice(0, 8).map((company, index) => (
+              <span key={company.id}>
+                {index ? ' · ' : ''}
+                <Link to={`/companies/${company.id}`} className="text-slate-300 hover:text-white">{company.name}</Link>
+              </span>
+            ))}
+          </p>
         </div>
       </section>
 

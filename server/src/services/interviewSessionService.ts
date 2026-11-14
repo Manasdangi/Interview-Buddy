@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto'
 import type {
   AnswerQuality,
+  CompanyRoleLevel,
   Difficulty,
   DifficultyTrend,
   FollowUpMove,
@@ -23,7 +24,8 @@ import {
   getStoredInterviewSession,
   updateInterviewSession,
 } from './interviewSessionRepository.js'
-import { getDailyQuestionVariant } from './dailyQuestionVariantService.js'
+import { getCompanyQuestionVariant, getDailyQuestionVariant } from './dailyQuestionVariantService.js'
+import { findCompany, findCompanyRound, isCompanyRoleLevel, roleDefinitions } from '../../../shared/companyCatalog.js'
 
 export type SessionAccess = {
   uid: string | null
@@ -120,14 +122,34 @@ function ensureInterviewState(session: StoredInterviewSession) {
   return session
 }
 
-function buildSession(interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet) {
+type CompanySelection = {
+  company: NonNullable<ReturnType<typeof findCompany>>
+  round: NonNullable<ReturnType<typeof findCompanyRound>>
+  role: CompanyRoleLevel
+}
+
+function buildSession(interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet, selection?: CompanySelection) {
   const startedAt = new Date().toISOString()
   const session: StoredInterviewSession = {
     id: createId(),
     interviewType,
     difficulty,
     questionSet,
-    dailyQuestionVariant: getDailyQuestionVariant(interviewType, difficulty, questionSet, new Date(startedAt)),
+    dailyQuestionVariant: selection
+      ? getCompanyQuestionVariant(selection.company.id, selection.round, selection.role, questionSet, new Date(startedAt))
+      : getDailyQuestionVariant(interviewType, difficulty, questionSet, new Date(startedAt)),
+    ...(selection
+      ? {
+          company: {
+            companyId: selection.company.id,
+            companyName: selection.company.name,
+            role: selection.role,
+            roleLabel: roleDefinitions[selection.role].label,
+            roundTitle: selection.round.title,
+            durationMinutes: selection.round.durationMinutes,
+          },
+        }
+      : {}),
     status: 'ACTIVE',
     messages: [],
     currentQuestionCount: 0,
@@ -295,6 +317,7 @@ async function generateScorecard(session: InterviewSession): Promise<InterviewSc
     normalizeQuestionSet(session.questionSet),
     getSessionDailyVariant(session),
     session.messages,
+    session.company,
   )
 
   for (let attempt = 0; attempt < scorecardAttempts; attempt += 1) {
@@ -311,19 +334,43 @@ async function applyScorecard(session: StoredInterviewSession) {
   session.completedAt = new Date().toISOString()
 }
 
+/** Validates a company mock-round request; the role decides the difficulty. */
+function resolveCompanySelection(input: { companyId?: unknown; role?: unknown }, interviewType: InterviewType): CompanySelection | undefined {
+  if (input.companyId === undefined || input.companyId === null || input.companyId === '') return undefined
+
+  const company = findCompany(input.companyId)
+  const round = company ? findCompanyRound(company, interviewType) : undefined
+  if (!company || !round) {
+    throw new HttpError(400, 'That company round is not available.')
+  }
+  if (!isCompanyRoleLevel(input.role)) {
+    throw new HttpError(400, 'A valid role (FE1 or FE2) is required for company interviews.')
+  }
+
+  return { company, round, role: input.role }
+}
+
 export async function startInterviewSession(
-  input: { interviewType?: unknown; difficulty?: unknown; questionSet?: unknown },
+  input: { interviewType?: unknown; difficulty?: unknown; questionSet?: unknown; companyId?: unknown; role?: unknown },
   uid: string | null,
 ) {
   const interviewType = interviewTypes.find((type) => type === input.interviewType)
-  const difficulty = difficulties.find((level) => level === input.difficulty)
-  if (!interviewType || !difficulty) {
+  if (!interviewType) {
+    throw new HttpError(400, 'A valid interviewType is required.')
+  }
+
+  const selection = resolveCompanySelection(input, interviewType)
+  const difficulty = selection ? roleDefinitions[selection.role].difficulty : difficulties.find((level) => level === input.difficulty)
+  if (!difficulty) {
     throw new HttpError(400, 'A valid interviewType and difficulty are required.')
   }
 
-  const questionSet = normalizeQuestionSet(input.questionSet)
+  // Company rounds pick a fresh topic mix on every attempt unless a set is requested.
+  const questionSet = selection && input.questionSet === undefined
+    ? ((randomBytes(1)[0] % 5) + 1) as QuestionSet
+    : normalizeQuestionSet(input.questionSet)
   const accessKey = randomBytes(32).toString('base64url')
-  const session = buildSession(interviewType, difficulty, questionSet)
+  const session = buildSession(interviewType, difficulty, questionSet, selection)
   session.uid = uid ?? undefined
   session.accessKeyHash = hashAccessKey(accessKey)
 

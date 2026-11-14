@@ -5,11 +5,15 @@ import SelectDifficultyPage from '../pages/SelectDifficultyPage'
 import InterviewRoomPage from '../pages/InterviewRoomPage'
 import ResultsPage from '../pages/ResultsPage'
 import DashboardPage from '../pages/DashboardPage'
+import CompaniesPage from '../pages/CompaniesPage'
+import CompanyPage from '../pages/CompanyPage'
 
 export function Router() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/companies" element={<CompaniesPage />} />
+      <Route path="/companies/:companyId" element={<CompanyPage />} />
       <Route path="/select-interview" element={<SelectInterviewPage />} />
       <Route path="/select-difficulty/:interviewType" element={<SelectDifficultyPage />} />
       <Route path="/interview/:sessionId" element={<InterviewRoomPage />} />

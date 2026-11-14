@@ -1,7 +1,8 @@
-import type { AnswerQuality, FollowUpMove, InterviewScorecard, QuestionReview, RubricScores } from '../types/interview.js'
+import type { AnswerQuality, FollowUpMove, HiringSignal, InterviewScorecard, QuestionReview, RubricScores } from '../types/interview.js'
 import type { JsonSchema } from './claudeService.js'
 
 const answerQualities: AnswerQuality[] = ['UNKNOWN', 'WEAK', 'MODERATE', 'STRONG']
+const hiringSignals: HiringSignal[] = ['STRONG_HIRE', 'HIRE', 'LEAN_NO_HIRE', 'NO_HIRE']
 export const followUpMoves: FollowUpMove[] = ['HINT', 'PROBE_WHY', 'EDGE_CASE', 'SCALE', 'CHANGE_REQUIREMENT', 'NEXT_TOPIC']
 
 export const interviewTurnSchema: JsonSchema = {
@@ -54,6 +55,8 @@ export const scorecardSchema: JsonSchema = {
         required: ['question', 'answerSummary', 'score', 'feedback', 'idealAnswer'],
       },
     },
+    hiringSignal: { type: 'string', enum: hiringSignals },
+    hiringSignalReason: { type: 'string' },
   },
   required: [
     'overallScore',
@@ -68,6 +71,8 @@ export const scorecardSchema: JsonSchema = {
     'finalFeedback',
     'rubric',
     'questionReviews',
+    'hiringSignal',
+    'hiringSignalReason',
   ],
 }
 
@@ -190,6 +195,8 @@ export function parseScorecard(result: string): InterviewScorecard | null {
 
   const rubric = parseRubric(parsed.rubric)
   const questionReviews = parseQuestionReviews(parsed.questionReviews)
+  const hiringSignal = hiringSignals.find((signal) => signal === parsed.hiringSignal)
+  const hiringSignalReason = typeof parsed.hiringSignalReason === 'string' ? parsed.hiringSignalReason.trim() : ''
 
   return {
     overallScore,
@@ -204,6 +211,8 @@ export function parseScorecard(result: string): InterviewScorecard | null {
     finalFeedback,
     ...(rubric ? { rubric } : {}),
     ...(questionReviews ? { questionReviews } : {}),
+    ...(hiringSignal ? { hiringSignal } : {}),
+    ...(hiringSignal && hiringSignalReason ? { hiringSignalReason } : {}),
   }
 }
 

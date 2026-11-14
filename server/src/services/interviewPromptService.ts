@@ -1,4 +1,6 @@
+import { findCompany, findCompanyRound, roleDefinitions } from '../../../shared/companyCatalog.js'
 import type {
+  CompanyInterviewContext,
   DailyQuestionVariant,
   Difficulty,
   InterviewMessage,
@@ -117,6 +119,35 @@ function formatStructuredState(session: InterviewSession) {
 }
 
 export type InterviewPromptMode = 'FIRST_QUESTION' | 'FOLLOW_UP'
+
+/**
+ * Company mock-round brief. It takes priority over the generic focus areas so the round feels like that
+ * company's loop, while making clear these are practice themes, not real or leaked company questions.
+ */
+export function buildCompanyBrief(session: InterviewSession, mode: InterviewPromptMode) {
+  const context = session.company
+  if (!context) return ''
+
+  const company = findCompany(context.companyId)
+  const round = company ? findCompanyRound(company, session.interviewType) : undefined
+  if (!company || !round) return ''
+
+  const role = roleDefinitions[context.role]
+  const opening = mode === 'FIRST_QUESTION'
+    ? `\nOpening: start with one short line welcoming the candidate to this mock ${company.name} "${round.title}" round for ${role.shortLabel} and saying in a few words how it will run, then ask the first question.`
+    : ''
+
+  return `COMPANY MOCK ROUND (this brief takes priority over the generic focus areas below):
+- Company: ${company.name}
+- Role: ${role.label}, ${role.experience} of experience. Calibrate expectations: ${role.expectations}
+- Round: ${round.title} (${round.durationMinutes} minutes). Format: ${round.format}
+- Interviewer style for this company: ${round.interviewerStyle}
+- Hiring bar and culture: ${company.bar}
+- Make the questions feel like this company's round: use product scenarios that fit ${company.name}, and follow the round format above.
+- This is a practice interview modeled on publicly reported interview patterns. Never claim a question is a real, leaked or confidential ${company.name} question, never claim to work at ${company.name}, and never invent internal details about the company.${
+    round.behavioralTopic ? `\n- The final topic is behavioural ("${round.behavioralTopic}"). Ask it as a normal interviewer would, expect a structured STAR-style story, and probe for specifics and measurable impact.` : ''
+  }${opening}`
+}
 
 export function createInterviewPrompt(
   session: InterviewSession,
@@ -263,7 +294,17 @@ ${responseInstruction}
 `,
   }
 
-  return basePrompt[session.interviewType]
+  const companyBrief = buildCompanyBrief(session, mode)
+  return companyBrief ? `${companyBrief}\n\n${basePrompt[session.interviewType]}` : basePrompt[session.interviewType]
+}
+
+function formatScorecardCompany(company: CompanyInterviewContext | undefined, difficulty: Difficulty) {
+  if (!company) {
+    return `Hiring signal: estimate the decision for a frontend candidate at the ${difficulty.toLowerCase()} level.`
+  }
+  const role = roleDefinitions[company.role]
+  return `Company mock round: ${company.companyName}, "${company.roundTitle}" round for ${role.label} (${role.experience}).
+Hiring signal: estimate whether this performance would clear the ${company.companyName} ${role.shortLabel} bar for this round, based on publicly reported expectations. Expectations for the role: ${role.expectations}`
 }
 
 export function buildScorecardPrompt(
@@ -272,6 +313,7 @@ export function buildScorecardPrompt(
   questionSet: QuestionSet,
   dailyVariant: DailyQuestionVariant,
   chatHistory: InterviewMessage[],
+  company?: CompanyInterviewContext,
 ) {
   const history = chatHistory
     .map((message) => `${message.role === 'AI' ? 'Interviewer' : 'Candidate'}: ${message.content}`)
@@ -284,6 +326,8 @@ Evaluate this interview and return compact JSON only.
 Interview type: ${interviewType}
 
 Difficulty: ${difficulty}
+
+${formatScorecardCompany(company, difficulty)}
 
 Question set: ${questionSet}
 
@@ -310,7 +354,9 @@ Return valid JSON only in this exact shape. Do not add markdown, code fences, ex
   "rubric": { "correctness": 0, "depth": 0, "communication": 0, "edgeCases": 0, "tradeOffs": 0 },
   "questionReviews": [
     { "question": "", "topic": "", "answerSummary": "", "score": 0, "feedback": "", "idealAnswer": "" }
-  ]
+  ],
+  "hiringSignal": "HIRE",
+  "hiringSignalReason": ""
 }
 
 Scoring rules:
@@ -319,6 +365,7 @@ Scoring rules:
 - Keep strengths, weaknesses and recommendedTopics to 2-4 short items each. Mention specific examples from the interview briefly.
 - "improvements" must be exactly the 3 highest-impact, concrete things to practise before the next interview, most important first. Each is one actionable sentence, not a generic tip.
 - "questionReviews": one entry for each interviewer question that the candidate answered, in order (follow-up questions count as their own entry). "question" is the question in at most 25 words. "answerSummary" is what the candidate actually said in 1-2 sentences (say so if they did not answer). "feedback" is 1-2 sentences on what was good and what was missing. "idealAnswer" is what a strong candidate would say, in 2-5 sentences (or a short code snippet when the question is about code).
+- "hiringSignal" is one of STRONG_HIRE, HIRE, LEAN_NO_HIRE, NO_HIRE for this round only, judged against the role's bar. Be realistic: most candidates who skip or fumble several questions are LEAN_NO_HIRE or NO_HIRE. "hiringSignalReason" is one sentence explaining the decision.
 - Keep finalFeedback to 1-2 short sentences.
 - Recommend what the user should study next.
 - Output raw JSON only.

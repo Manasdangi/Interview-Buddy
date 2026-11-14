@@ -1,4 +1,5 @@
-import type { DailyQuestionVariant, Difficulty, InterviewType, QuestionSet } from '../types/interview.js'
+import type { CompanyRoleLevel, DailyQuestionVariant, Difficulty, InterviewType, QuestionSet } from '../types/interview.js'
+import type { CompanyRoundBlueprint } from '../../../shared/companyCatalog.js'
 
 const defaultTimeZone = 'Asia/Kolkata'
 
@@ -249,4 +250,44 @@ export function getDailyQuestionVariant(interviewType: InterviewType, difficulty
     dailySeed,
     topicPath,
   }
+}
+
+/** Deterministic PRNG so a given seed always produces the same shuffle. */
+function seededRandom(seed: number) {
+  let state = seed || 1
+  return () => {
+    state = (state + 0x6d2b79f5) | 0
+    let t = Math.imul(state ^ (state >>> 15), 1 | state)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+const companyTopicCount = 5
+
+/**
+ * Topic path for a company mock round: a seeded selection from the round's blueprint topics (different per
+ * attempt and day), with the company's behavioural question, if any, as the final topic.
+ */
+export function getCompanyQuestionVariant(
+  companyId: string,
+  round: CompanyRoundBlueprint,
+  role: CompanyRoleLevel,
+  questionSet: QuestionSet,
+  date = new Date(),
+): DailyQuestionVariant {
+  const questionDate = getQuestionDate(date)
+  const dailySeed = `${companyId}:${round.type}:${role}:SET_${questionSet}:${questionDate}`
+  const random = seededRandom(hashSeed(dailySeed))
+  const shuffled = [...round.topics]
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(random() * (index + 1))
+    ;[shuffled[index], shuffled[swap]] = [shuffled[swap], shuffled[index]]
+  }
+
+  const technicalCount = round.behavioralTopic ? companyTopicCount - 1 : companyTopicCount
+  const topicPath = shuffled.slice(0, technicalCount)
+  if (round.behavioralTopic) topicPath.push(round.behavioralTopic)
+
+  return { questionDate, dailySeed, topicPath }
 }

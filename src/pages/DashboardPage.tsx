@@ -58,9 +58,11 @@ export default function DashboardPage() {
               <Card key={summary.sessionId} className="flex flex-col gap-4 border-slate-800/80">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.2em] text-slate-500">{summary.interviewType.replace('_', ' ')}</p>
+                    <p className="text-sm uppercase tracking-[0.2em] text-slate-500">
+                      {summary.companyName ? `${summary.companyName} · ${summary.roundTitle ?? summary.interviewType.replace('_', ' ')}` : summary.interviewType.replace('_', ' ')}
+                    </p>
                     <h2 className="mt-2 text-2xl font-semibold text-white">
-                      {summary.difficulty.toLowerCase()} practice · Set {summary.questionSet ?? 1}
+                      {summary.roleLabel ?? `${summary.difficulty.toLowerCase()} practice · Set ${summary.questionSet ?? 1}`}
                     </h2>
                   </div>
                   <Badge variant={summary.exitReason === 'COMPLETED' ? 'success' : 'primary'}>
@@ -90,9 +92,11 @@ export default function DashboardPage() {
             <Card key={session.id} className="flex flex-col gap-4 border-slate-800/80">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">{session.interviewType.replace('_', ' ')}</p>
+                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">
+                    {session.company ? `${session.company.companyName} · ${session.company.roundTitle}` : session.interviewType.replace('_', ' ')}
+                  </p>
                   <h2 className="mt-2 text-2xl font-semibold text-white">
-                    {session.difficulty.toLowerCase()} practice · Set {session.questionSet ?? 1}
+                    {session.company?.roleLabel ?? `${session.difficulty.toLowerCase()} practice · Set ${session.questionSet ?? 1}`}
                   </h2>
                 </div>
                 <Badge variant={session.status === 'COMPLETED' ? 'success' : 'primary'}>

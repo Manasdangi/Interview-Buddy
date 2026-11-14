@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type {
+  CompanyRoleLevel,
   Difficulty,
   InterviewMessage,
   InterviewScorecard,
@@ -58,11 +59,19 @@ function sessionHeaders(sessionId: string): Record<string, string> {
   return accessKey ? { 'X-Session-Key': accessKey } : {}
 }
 
-export const startInterview = async (interviewType: InterviewType, difficulty: Difficulty, questionSet: QuestionSet) => {
+export type CompanyStartOptions = { companyId: string; role: CompanyRoleLevel }
+
+export const startInterview = async (
+  interviewType: InterviewType,
+  difficulty: Difficulty,
+  questionSet: QuestionSet | undefined,
+  company?: CompanyStartOptions,
+) => {
   const response = await client.post<{ session: InterviewSession; accessKey: string }>('/interviews/start', {
     interviewType,
     difficulty,
     questionSet,
+    ...(company ?? {}),
   })
   saveSessionAccessKey(response.data.session.id, response.data.accessKey)
   return response.data.session

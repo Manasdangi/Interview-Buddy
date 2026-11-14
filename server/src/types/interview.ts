@@ -6,6 +6,20 @@ export type QuestionSet = 1 | 2 | 3 | 4 | 5
 
 export type MessageRole = 'AI' | 'USER'
 
+export type CompanyRoleLevel = 'FE1' | 'FE2'
+
+/** Present when the session is a company mock round (e.g. Amazon, Frontend Engineer 1, Round 1). */
+export type CompanyInterviewContext = {
+  companyId: string
+  companyName: string
+  role: CompanyRoleLevel
+  roleLabel: string
+  roundTitle: string
+  durationMinutes: number
+}
+
+export type HiringSignal = 'STRONG_HIRE' | 'HIRE' | 'LEAN_NO_HIRE' | 'NO_HIRE'
+
 export type InterviewStatus = 'ACTIVE' | 'COMPLETED'
 
 export type AnswerQuality = 'UNKNOWN' | 'WEAK' | 'MODERATE' | 'STRONG'
@@ -55,6 +69,9 @@ export type InterviewScorecard = {
   /** Absent on scorecards generated before the rubric was introduced. */
   rubric?: RubricScores
   questionReviews?: QuestionReview[]
+  /** Estimated hiring decision for this round, calibrated to the role (and company, when there is one). */
+  hiringSignal?: HiringSignal
+  hiringSignalReason?: string
 }
 
 export type DailyQuestionVariant = {
@@ -87,6 +104,7 @@ export type InterviewSession = {
   difficulty: Difficulty
   questionSet?: QuestionSet
   dailyQuestionVariant?: DailyQuestionVariant
+  company?: CompanyInterviewContext
   status: InterviewStatus
   messages: InterviewMessage[]
   currentQuestionCount: number
@@ -105,6 +123,9 @@ export type InterviewSummary = {
   interviewType: InterviewType
   difficulty: Difficulty
   questionSet?: QuestionSet
+  companyName?: string
+  roleLabel?: string
+  roundTitle?: string
   status: InterviewStatus
   exitReason: InterviewExitReason
   questionsAsked: number

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { InterviewMessage, InterviewScorecard, QuestionReview, RubricScores } from '../../types/interview'
+import type { HiringSignal, InterviewMessage, InterviewScorecard, QuestionReview, RubricScores } from '../../types/interview'
 import { formatSeconds, getAnswerTimings, questionTargetSeconds } from '../../utils/pacing'
 import { cn } from '../../utils/cn'
 import { Card } from '../ui/Card'
@@ -18,6 +18,13 @@ const rubricLabels: Array<{ key: keyof RubricScores; label: string; hint: string
   { key: 'edgeCases', label: 'Edge cases', hint: 'Failures, empty/slow/large inputs, a11y' },
   { key: 'tradeOffs', label: 'Trade-offs', hint: 'Alternatives weighed and justified?' },
 ]
+
+const hiringSignalStyles: Record<HiringSignal, { label: string; text: string; box: string }> = {
+  STRONG_HIRE: { label: 'Strong hire', text: 'text-emerald-300', box: 'border-emerald-700/50 bg-emerald-950/40' },
+  HIRE: { label: 'Hire', text: 'text-emerald-300', box: 'border-emerald-800/40 bg-emerald-950/30' },
+  LEAN_NO_HIRE: { label: 'Lean no hire', text: 'text-amber-300', box: 'border-amber-800/40 bg-amber-950/30' },
+  NO_HIRE: { label: 'No hire', text: 'text-rose-300', box: 'border-rose-800/40 bg-rose-950/30' },
+}
 
 function scoreTone(score: number) {
   if (score >= 7.5) return { bar: 'bg-emerald-400', text: 'text-emerald-300' }
@@ -102,11 +109,27 @@ export function ScoreCard({ scorecard, messages = [], startedAt, completedAt }: 
           <h2 className="mt-2 text-3xl font-semibold text-white">How you did</h2>
           {totalSeconds !== null ? <p className="mt-2 text-sm text-slate-400">Total time {formatSeconds(totalSeconds)}</p> : null}
         </div>
-        <div className="rounded-3xl border border-slate-800/80 bg-slate-900 px-8 py-5 text-center">
-          <p className="text-sm text-slate-400">Overall</p>
-          <p className={cn('mt-1 text-5xl font-semibold', overallTone.text)}>{scorecard.overallScore}<span className="text-2xl text-slate-500">/10</span></p>
+        <div className="flex flex-wrap gap-3">
+          {scorecard.hiringSignal ? (
+            <div className={cn('rounded-3xl border px-6 py-5 text-center', hiringSignalStyles[scorecard.hiringSignal].box)}>
+              <p className="text-sm text-slate-400">Estimated decision</p>
+              <p className={cn('mt-2 text-2xl font-semibold', hiringSignalStyles[scorecard.hiringSignal].text)}>
+                {hiringSignalStyles[scorecard.hiringSignal].label}
+              </p>
+            </div>
+          ) : null}
+          <div className="rounded-3xl border border-slate-800/80 bg-slate-900 px-8 py-5 text-center">
+            <p className="text-sm text-slate-400">Overall</p>
+            <p className={cn('mt-1 text-5xl font-semibold', overallTone.text)}>{scorecard.overallScore}<span className="text-2xl text-slate-500">/10</span></p>
+          </div>
         </div>
       </div>
+      {scorecard.hiringSignalReason ? (
+        <p className="-mt-4 text-sm text-slate-400">
+          <span className="font-semibold text-slate-200">Why: </span>
+          {scorecard.hiringSignalReason} <span className="text-slate-500">(an AI estimate for practice, not a real hiring decision)</span>
+        </p>
+      ) : null}
 
       {scorecard.rubric ? (
         <section aria-label="Rubric scores" className="grid gap-5 sm:grid-cols-2">

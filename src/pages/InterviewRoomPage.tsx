@@ -301,6 +301,7 @@ export default function InterviewRoomPage() {
             startedAt={currentSession.startedAt}
             completedAt={currentSession.completedAt}
             messages={currentSession.messages}
+            maxDurationSeconds={currentSession.company ? currentSession.company.durationMinutes * 60 : undefined}
             onTimeUp={handleTimeUp}
           />
           <div className="mt-6 space-y-3 text-slate-400">
