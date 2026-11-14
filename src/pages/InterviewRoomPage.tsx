@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Code2, Headphones, Volume2, VolumeX } from 'lucide-react'
+import { Code2, Headphones, Keyboard, Mic } from 'lucide-react'
 import { useInterviewStore } from '../store/interviewStore'
 import { ChatPanel } from '../components/interview/ChatPanel'
 import { InterviewControls } from '../components/interview/InterviewControls'
@@ -23,8 +23,8 @@ export default function InterviewRoomPage() {
   const navigate = useNavigate()
   const { currentSession, loadingSession, sending, completing, error, loadSession, sendAnswer, completeInterview, resetInterview } = useInterviewStore()
   const [pendingVoiceTranscript, setPendingVoiceTranscript] = useState<string | null>(null)
-  const [voiceReplies, setVoiceReplies] = useState(true)
   const [voiceInterview, setVoiceInterview] = useState(false)
+  const [answerModeChosen, setAnswerModeChosen] = useState(false)
   const [showEditor, setShowEditor] = useState<boolean | null>(null)
   const [attachCode, setAttachCode] = useState(true)
   const [attachError, setAttachError] = useState<string | null>(null)
@@ -38,6 +38,7 @@ export default function InterviewRoomPage() {
   const historyGuardArmedRef = useRef(false)
   const quitSummarySavedForRef = useRef<string | null>(null)
   const hasActiveInterview = currentSession?.status === 'ACTIVE'
+  const hasAnswered = currentSession?.messages.some((message) => message.role === 'USER') ?? false
   const latestMessage = currentSession?.messages.at(-1)
   const pendingQuestion = hasActiveInterview && latestMessage?.role === 'AI' ? { id: latestMessage.id, content: latestMessage.content } : null
 
@@ -75,6 +76,8 @@ export default function InterviewRoomPage() {
     onTranscript: setPendingVoiceTranscript,
   })
 
+  const showAnswerModeChoice = hasActiveInterview && voice.supported && !voiceInterview && !answerModeChosen && !hasAnswered
+
   const saveQuitSummary = async () => {
     if (!currentSession || currentSession.status !== 'ACTIVE') return
     if (quitSummarySavedForRef.current === currentSession.id) return
@@ -85,6 +88,17 @@ export default function InterviewRoomPage() {
   const stopSpeech = () => {
     window.speechSynthesis?.cancel()
   }
+
+  // The interviewer always reads questions aloud (there is no mute), as in a real interview.
+  const speakQuestion = (message: { id: string; content: string }) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return
+    lastSpokenMessageIdRef.current = message.id
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(message.content)
+    utterance.rate = 0.95
+    window.speechSynthesis.speak(utterance)
+  }
+  const onNewQuestion = useEffectEvent(speakQuestion)
 
   const confirmExitInterview = async () => {
     if (!hasActiveInterview) return true
@@ -120,18 +134,13 @@ export default function InterviewRoomPage() {
   }, [currentSession?.id, currentSession?.status, navigate])
 
   useEffect(() => {
-    // Voice interview mode reads the questions itself, so this effect only serves the plain "Voice replies" toggle.
-    if (!voiceReplies || voiceInterview || typeof window === 'undefined' || !window.speechSynthesis) return
+    // Voice interview mode reads the questions itself; in typed mode the interviewer still speaks every question.
+    if (voiceInterview) return
 
     const newest = currentSession?.messages.at(-1)
     if (!newest || newest.role !== 'AI' || newest.id === lastSpokenMessageIdRef.current) return
-
-    lastSpokenMessageIdRef.current = newest.id
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(newest.content)
-    utterance.rate = 0.95
-    window.speechSynthesis.speak(utterance)
-  }, [currentSession?.messages, voiceReplies, voiceInterview])
+    onNewQuestion(newest)
+  }, [currentSession?.messages, voiceInterview])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -313,6 +322,41 @@ export default function InterviewRoomPage() {
 
       <div className="space-y-6">
         {error ? <div className="rounded-3xl border border-rose-700/40 bg-rose-950/80 p-4 text-sm text-rose-200">{error}</div> : null}
+        {showAnswerModeChoice ? (
+          <Card className="rounded-[2rem] border-indigo-500/40 bg-indigo-950/40 p-6 shadow-soft">
+            <p className="text-sm uppercase tracking-[0.24em] text-indigo-300">Before you start</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">How do you want to answer?</h2>
+            <p className="mt-2 text-slate-300">
+              Speaking your answers out loud is the closest to a real interview. The interviewer will read each question aloud and listen while
+              you answer.
+            </p>
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <Button
+                className="gap-2"
+                onClick={() => {
+                  stopSpeech()
+                  setAnswerModeChosen(true)
+                  setVoiceInterview(true)
+                }}
+              >
+                <Mic className="h-4 w-4" />
+                Answer live by voice (recommended)
+              </Button>
+              <Button
+                variant="secondary"
+                className="gap-2"
+                onClick={() => {
+                  setAnswerModeChosen(true)
+                  // Some mobile browsers block speech until a tap, so read the current question again now.
+                  if (pendingQuestion) speakQuestion(pendingQuestion)
+                }}
+              >
+                <Keyboard className="h-4 w-4" />
+                Type my answers
+              </Button>
+            </div>
+          </Card>
+        ) : null}
         <Card className="rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
@@ -335,29 +379,8 @@ export default function InterviewRoomPage() {
                 }}
               >
                 <Headphones className="h-4 w-4" />
-                {voiceInterview ? 'Voice interview on' : 'Voice interview'}
+                {voiceInterview ? 'Live voice on' : 'Answer live'}
               </Button>
-              {voiceInterview ? null : (
-                <>
-                  <Button
-                    variant={voiceReplies ? 'primary' : 'secondary'}
-                    className="gap-2"
-                    onClick={() => {
-                      if (voiceReplies) {
-                        stopSpeech()
-                      }
-                      setVoiceReplies((current) => !current)
-                    }}
-                  >
-                    {voiceReplies ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                    Voice replies
-                  </Button>
-                  <Button variant="secondary" className="gap-2" onClick={stopSpeech}>
-                    <VolumeX className="h-4 w-4" />
-                    Stop speech
-                  </Button>
-                </>
-              )}
               <Button
                 variant="ghost"
                 onClick={async () => {
@@ -409,7 +432,6 @@ export default function InterviewRoomPage() {
             voiceName={voice.voiceName}
             canRetrySend={voice.canRetrySend}
             onVoiceChange={voice.setVoiceName}
-            onSkipSpeaking={voice.skipSpeaking}
             onFinishAnswer={voice.finishAnswer}
             onAnswerNow={voice.answerNow}
             onRetrySend={voice.retrySend}

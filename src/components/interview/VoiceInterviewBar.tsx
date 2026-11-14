@@ -1,4 +1,4 @@
-import { Headphones, Mic, RotateCcw, SkipForward, Square } from 'lucide-react'
+import { Headphones, Mic, RotateCcw, Square } from 'lucide-react'
 import type { VoicePhase } from '../../hooks/useVoiceInterview'
 import { cn } from '../../utils/cn'
 import { Button } from '../ui/Button'
@@ -11,7 +11,6 @@ type VoiceInterviewBarProps = {
   voiceName: string | null
   canRetrySend: boolean
   onVoiceChange: (name: string) => void
-  onSkipSpeaking: () => void
   onFinishAnswer: () => void
   onAnswerNow: () => void
   onRetrySend: () => void
@@ -54,7 +53,6 @@ export function VoiceInterviewBar({
   voiceName,
   canRetrySend,
   onVoiceChange,
-  onSkipSpeaking,
   onFinishAnswer,
   onAnswerNow,
   onRetrySend,
@@ -80,12 +78,6 @@ export function VoiceInterviewBar({
       {error ? <p className="mt-3 text-sm text-amber-300">{error}</p> : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {phase === 'speaking' ? (
-          <Button type="button" variant="secondary" className="gap-2 px-4 py-2" onClick={onSkipSpeaking}>
-            <SkipForward className="h-4 w-4" />
-            Skip and answer
-          </Button>
-        ) : null}
         {listening ? (
           <Button type="button" className="gap-2 px-4 py-2" onClick={onFinishAnswer}>
             <Square className="h-4 w-4" />
