@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { ErrorToast } from '../components/ui/ErrorToast'
 import { useInterviewStore } from '../store/interviewStore'
 import type { Difficulty, InterviewType, QuestionSet } from '../types/interview'
+import { unlockAudio } from '../utils/liveSpeaker'
 import { cn } from '../utils/cn'
 
 const difficulties: Array<{ label: string; value: Difficulty; description: string; detail: string }> = [
@@ -53,6 +54,8 @@ export default function SelectDifficultyPage() {
   const selectedDifficulty = difficulties.find((item) => item.value === selected)
 
   const handleStart = async () => {
+    // This tap allows the interviewer's voice to play as soon as the interview page opens.
+    unlockAudio()
     if (!interviewType) return
     const session = await startInterview(interviewType as InterviewType, selected, selectedSet)
     if (session) {

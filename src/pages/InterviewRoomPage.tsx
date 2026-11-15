@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Code2, Headphones, Keyboard, Mic } from 'lucide-react'
+import { Code2, Mic } from 'lucide-react'
 import { useInterviewStore } from '../store/interviewStore'
 import { ChatPanel } from '../components/interview/ChatPanel'
 import { InterviewControls } from '../components/interview/InterviewControls'
@@ -9,7 +9,7 @@ import { ProblemStatement } from '../components/interview/ProblemStatement'
 import { VoiceInterviewBar } from '../components/interview/VoiceInterviewBar'
 import { useVoiceInterview } from '../hooks/useVoiceInterview'
 import { isLiveVoiceSupported, useLiveVoice } from '../hooks/useLiveVoice'
-import { LiveSpeaker, unlockAudio } from '../utils/liveSpeaker'
+import { isAudioUnlocked, LiveSpeaker, unlockAudio } from '../utils/liveSpeaker'
 import { starterCode } from '../utils/starterCode'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -25,8 +25,10 @@ export default function InterviewRoomPage() {
   const navigate = useNavigate()
   const { currentSession, loadingSession, sending, completing, error, streamingReply, loadSession, sendAnswer, completeInterview, resetInterview } = useInterviewStore()
   const [pendingVoiceTranscript, setPendingVoiceTranscript] = useState<string | null>(null)
-  const [voiceInterview, setVoiceInterview] = useState(false)
-  const [answerModeChosen, setAnswerModeChosen] = useState(false)
+  // The interview is a spoken conversation by default; typing is the fallback.
+  const [voiceInterview, setVoiceInterview] = useState(true)
+  // Browsers only play audio after a tap. Starting a round from the company page counts; a reload needs one tap.
+  const [audioReady, setAudioReady] = useState(isAudioUnlocked)
   const [liveUnavailable, setLiveUnavailable] = useState<string | null>(null)
   const typedSpeakerRef = useRef<LiveSpeaker | null>(null)
   const [showEditor, setShowEditor] = useState<boolean | null>(null)
@@ -42,7 +44,7 @@ export default function InterviewRoomPage() {
   const historyGuardArmedRef = useRef(false)
   const quitSummarySavedForRef = useRef<string | null>(null)
   const hasActiveInterview = currentSession?.status === 'ACTIVE'
-  const hasAnswered = currentSession?.messages.some((message) => message.role === 'USER') ?? false
+  const micSupported = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia)
   const latestMessage = currentSession?.messages.at(-1)
   const pendingQuestion = hasActiveInterview && latestMessage?.role === 'AI' ? { id: latestMessage.id, content: latestMessage.content } : null
 
@@ -76,9 +78,10 @@ export default function InterviewRoomPage() {
   )
 
   // Chrome/Edge get ChatGPT-style live voice; other browsers use record-and-transcribe voice mode.
-  const useLive = voiceInterview && isLiveVoiceSupported() && !liveUnavailable
+  const voiceMode = voiceInterview && micSupported
+  const useLive = voiceMode && isLiveVoiceSupported() && !liveUnavailable
   const live = useLiveVoice({
-    enabled: useLive && hasActiveInterview,
+    enabled: useLive && audioReady && hasActiveInterview,
     sessionId: sessionId ?? '',
     pendingQuestion,
     submit: handleSend,
@@ -87,7 +90,7 @@ export default function InterviewRoomPage() {
   })
 
   const voice = useVoiceInterview({
-    enabled: voiceInterview && !useLive && hasActiveInterview,
+    enabled: voiceMode && !useLive && audioReady && hasActiveInterview,
     sessionId: sessionId ?? '',
     pendingQuestion,
     onSubmit: handleSend,
@@ -95,8 +98,6 @@ export default function InterviewRoomPage() {
   })
 
   const activeVoice = useLive ? live : voice
-
-  const showAnswerModeChoice = hasActiveInterview && voice.supported && !voiceInterview && !answerModeChosen && !hasAnswered
 
   const saveQuitSummary = async () => {
     if (!currentSession || currentSession.status !== 'ACTIVE') return
@@ -153,14 +154,13 @@ export default function InterviewRoomPage() {
   }, [currentSession?.id, currentSession?.status, navigate])
 
   useEffect(() => {
-    // Voice interview mode reads the questions itself; in typed mode the interviewer still speaks every question.
-    // Wait until the candidate picks how to answer (that tap also allows audio), then read questions aloud.
-    if (voiceInterview || showAnswerModeChoice) return
+    // Voice mode reads the questions itself; when typing, the interviewer still speaks every question.
+    if (voiceMode || !audioReady) return
 
     const newest = currentSession?.messages.at(-1)
     if (!newest || newest.role !== 'AI' || newest.id === lastSpokenMessageIdRef.current) return
     onNewQuestion(newest)
-  }, [currentSession?.messages, voiceInterview, showAnswerModeChoice])
+  }, [currentSession?.messages, voiceMode, audioReady])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -334,49 +334,28 @@ export default function InterviewRoomPage() {
             onTimeUp={handleTimeUp}
           />
           <div className="mt-6 space-y-3 text-slate-400">
-            <p className="text-sm font-medium text-white">Interview flow</p>
-            <p>Answer each prompt clearly. The interviewer will follow up based on your response.</p>
+            <p className="text-sm font-medium text-white">How it works</p>
+            <p>The interviewer asks each question out loud. When it&apos;s your turn, answer by speaking; pause for a moment and your answer is sent.</p>
           </div>
         </Card>
       </div>
 
       <div className="space-y-6">
         {error ? <div className="rounded-3xl border border-rose-700/40 bg-rose-950/80 p-4 text-sm text-rose-200">{error}</div> : null}
-        {showAnswerModeChoice ? (
-          <Card className="rounded-[2rem] border-indigo-500/40 bg-indigo-950/40 p-6 shadow-soft">
-            <p className="text-sm uppercase tracking-[0.24em] text-indigo-300">Before you start</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">How do you want to answer?</h2>
-            <p className="mt-2 text-slate-300">
-              Speaking your answers out loud is the closest to a real interview. The interviewer will read each question aloud and listen while
-              you answer.
-            </p>
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-              <Button
-                className="gap-2"
-                onClick={() => {
-                  stopSpeech()
-                  unlockAudio()
-                  setAnswerModeChosen(true)
-                  setVoiceInterview(true)
-                }}
-              >
-                <Mic className="h-4 w-4" />
-                Answer live by voice (recommended)
-              </Button>
-              <Button
-                variant="secondary"
-                className="gap-2"
-                onClick={() => {
-                  setAnswerModeChosen(true)
-                  unlockAudio()
-                  // Some mobile browsers block speech until a tap, so read the current question again now.
-                  if (pendingQuestion) speakQuestion(pendingQuestion)
-                }}
-              >
-                <Keyboard className="h-4 w-4" />
-                Type my answers
-              </Button>
-            </div>
+        {hasActiveInterview && !audioReady ? (
+          <Card className="rounded-[2rem] border-indigo-500/40 bg-indigo-950/40 p-6 text-center shadow-soft">
+            <h2 className="text-2xl font-semibold text-white">Your interviewer is ready</h2>
+            <p className="mt-2 text-slate-300">The interviewer will ask each question out loud. Answer by speaking, just like a real interview.</p>
+            <Button
+              className="mt-5 gap-2"
+              onClick={() => {
+                unlockAudio()
+                setAudioReady(true)
+              }}
+            >
+              <Mic className="h-4 w-4" />
+              Start interview
+            </Button>
           </Card>
         ) : null}
         <Card className="rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
@@ -389,20 +368,6 @@ export default function InterviewRoomPage() {
               <Button variant={editorOpen ? 'primary' : 'secondary'} className="gap-2" onClick={() => setShowEditor(!editorOpen)}>
                 <Code2 className="h-4 w-4" />
                 Code editor
-              </Button>
-              <Button
-                variant={voiceInterview ? 'primary' : 'secondary'}
-                className="gap-2"
-                disabled={!voice.supported || !hasActiveInterview}
-                title={voice.supported ? 'The interviewer speaks and listens hands-free' : 'Voice recording is not supported in this browser'}
-                onClick={() => {
-                  stopSpeech()
-                  unlockAudio()
-                  setVoiceInterview((current) => !current)
-                }}
-              >
-                <Headphones className="h-4 w-4" />
-                {voiceInterview ? 'Live voice on' : 'Answer live'}
               </Button>
               <Button
                 variant="ghost"
@@ -446,34 +411,43 @@ export default function InterviewRoomPage() {
           </Card>
         ) : null}
 
-        {voiceInterview && hasActiveInterview ? (
-          <VoiceInterviewBar
-            phase={activeVoice.phase}
-            level={activeVoice.level}
-            error={activeVoice.error ?? (useLive ? null : liveUnavailable)}
-            voices={useLive ? [] : voice.voices}
-            voiceName={useLive ? null : voice.voiceName}
-            canRetrySend={activeVoice.canRetrySend}
-            onVoiceChange={voice.setVoiceName}
-            onFinishAnswer={activeVoice.finishAnswer}
-            onAnswerNow={activeVoice.answerNow}
-            onRetrySend={activeVoice.retrySend}
-            onStop={() => setVoiceInterview(false)}
-            liveMode={useLive}
-          />
-        ) : null}
-
         <div ref={controlsRef}>
-          <InterviewControls
-            onSubmit={handleSend}
-            onComplete={handleComplete}
-            onVoiceStart={stopSpeech}
-            onVoiceTranscript={setPendingVoiceTranscript}
-            sessionId={currentSession.id}
-            loading={sending || completing}
-            disabled={currentSession.status === 'COMPLETED'}
-            voiceLocked={voiceInterview}
-          />
+          {voiceMode && hasActiveInterview && audioReady ? (
+            <VoiceInterviewBar
+              phase={activeVoice.phase}
+              level={activeVoice.level}
+              error={activeVoice.error ?? (useLive ? null : liveUnavailable)}
+              canRetrySend={activeVoice.canRetrySend}
+              onFinishAnswer={activeVoice.finishAnswer}
+              onAnswerNow={activeVoice.answerNow}
+              onRetrySend={activeVoice.retrySend}
+              onTypeInstead={() => {
+                // The current question was already read aloud; do not read it again in typing mode.
+                lastSpokenMessageIdRef.current = pendingQuestion?.id ?? lastSpokenMessageIdRef.current
+                setVoiceInterview(false)
+              }}
+              onEndInterview={handleComplete}
+              ending={completing}
+              liveMode={useLive}
+            />
+          ) : (
+            <InterviewControls
+              onSubmit={handleSend}
+              onComplete={handleComplete}
+              onSwitchToVoice={
+                micSupported
+                  ? () => {
+                      stopSpeech()
+                      unlockAudio()
+                      setAudioReady(true)
+                      setVoiceInterview(true)
+                    }
+                  : undefined
+              }
+              loading={sending || completing}
+              disabled={currentSession.status === 'COMPLETED'}
+            />
+          )}
         </div>
       </div>
     </div>

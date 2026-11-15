@@ -1,4 +1,4 @@
-import { Headphones, Mic, RotateCcw, Square } from 'lucide-react'
+import { Keyboard, Mic, RotateCcw, Square, Volume2 } from 'lucide-react'
 import type { VoicePhase } from '../../hooks/useVoiceInterview'
 import { cn } from '../../utils/cn'
 import { Button } from '../ui/Button'
@@ -7,89 +7,111 @@ type VoiceInterviewBarProps = {
   phase: VoicePhase
   level: number
   error: string | null
-  voices: SpeechSynthesisVoice[]
-  voiceName: string | null
   canRetrySend: boolean
-  onVoiceChange: (name: string) => void
   onFinishAnswer: () => void
   onAnswerNow: () => void
   onRetrySend: () => void
-  onStop: () => void
+  /** Switch to typing answers. */
+  onTypeInstead: () => void
+  onEndInterview: () => void
+  ending?: boolean
   /** ChatGPT-style live mode: the candidate can talk over the interviewer. */
   liveMode?: boolean
 }
 
-const statusText: Record<VoicePhase, string> = {
-  off: '',
-  speaking: 'Interviewer is speaking...',
-  listening: 'Listening. Speak your answer; I will send it when you pause.',
-  transcribing: 'Turning your answer into text...',
-  sending: 'Sending your answer...',
-  waiting: 'Interviewer is thinking...',
-  idle: 'Paused.',
+type PhaseView = { title: string; detail: string; tone: 'interviewer' | 'you' | 'wait' }
+
+function describe(phase: VoicePhase, liveMode: boolean): PhaseView {
+  switch (phase) {
+    case 'speaking':
+      return {
+        title: 'Interviewer is speaking',
+        detail: liveMode ? 'Listen, then answer. You can also cut in any time, like a real call.' : 'Listen. Your turn starts when the question ends.',
+        tone: 'interviewer',
+      }
+    case 'listening':
+      return { title: 'Your turn — speak now', detail: 'Answer out loud. When you pause, your answer is sent.', tone: 'you' }
+    case 'transcribing':
+    case 'sending':
+    case 'waiting':
+      return { title: 'Interviewer is thinking…', detail: 'Got your answer.', tone: 'wait' }
+    case 'idle':
+      return { title: 'Paused', detail: 'Tap “Answer” when you are ready to speak.', tone: 'wait' }
+    default:
+      return { title: 'Connecting…', detail: '', tone: 'wait' }
+  }
 }
 
-const meterBars = 14
+const meterBars = 18
 
-function LevelMeter({ level, active }: { level: number; active: boolean }) {
-  const lit = Math.round(level * meterBars)
-
+/** The candidate's mic level while it is their turn, and a gentle pulse while the interviewer speaks. */
+function Waveform({ level, tone }: { level: number; tone: PhaseView['tone'] }) {
   return (
-    <div className="flex h-6 items-end gap-0.5" aria-hidden="true">
-      {Array.from({ length: meterBars }, (_, index) => (
-        <span
-          key={index}
-          className={cn('w-1 rounded-full transition-all duration-100', active && index < lit ? 'bg-emerald-400' : 'bg-slate-700')}
-          style={{ height: `${30 + (index / meterBars) * 70}%` }}
-        />
-      ))}
+    <div className="flex h-10 items-center justify-center gap-1" aria-hidden="true">
+      {Array.from({ length: meterBars }, (_, index) => {
+        const centre = 1 - Math.abs(index - meterBars / 2) / (meterBars / 2)
+        const height = tone === 'you' ? 20 + Math.min(1, level * 1.6) * 80 * centre : tone === 'interviewer' ? 30 + 40 * centre : 15
+        return (
+          <span
+            key={index}
+            className={cn(
+              'w-1.5 rounded-full transition-all duration-150',
+              tone === 'you' ? 'bg-emerald-500' : tone === 'interviewer' ? 'animate-pulse bg-indigo-400' : 'bg-slate-700',
+            )}
+            style={{ height: `${height}%`, animationDelay: `${index * 60}ms` }}
+          />
+        )
+      })}
     </div>
   )
 }
 
+/** The hands-free conversation panel: who is talking now, plus the few controls a real call needs. */
 export function VoiceInterviewBar({
   phase,
   level,
   error,
-  voices,
-  voiceName,
   canRetrySend,
-  onVoiceChange,
   onFinishAnswer,
   onAnswerNow,
   onRetrySend,
-  onStop,
+  onTypeInstead,
+  onEndInterview,
+  ending = false,
   liveMode = false,
 }: VoiceInterviewBarProps) {
-  const listening = phase === 'listening'
+  const view = describe(phase, liveMode)
 
   return (
-    <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/5 p-4" role="region" aria-label="Voice interview">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className={cn('flex h-10 w-10 items-center justify-center rounded-full', listening ? 'bg-emerald-500 text-pure' : 'bg-slate-900 text-emerald-300')}>
-            {listening ? <Mic className="h-5 w-5" /> : <Headphones className="h-5 w-5" />}
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-white">Voice interview</p>
-            <p className="text-sm text-slate-300" aria-live="polite">{liveMode && phase === 'speaking'
-                ? 'Interviewer is speaking. Start talking any time to interrupt.'
-                : liveMode && phase === 'sending'
-                  ? 'Interviewer is thinking...'
-                  : statusText[phase]}
-            </p>
-          </div>
+    <section
+      className={cn(
+        'rounded-[2rem] border p-6 shadow-soft transition-colors',
+        view.tone === 'you' ? 'border-emerald-500/40 bg-emerald-500/5' : view.tone === 'interviewer' ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-slate-800/80 bg-slate-950/90',
+      )}
+      aria-label="Voice interview"
+    >
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span
+          className={cn(
+            'grid h-14 w-14 place-items-center rounded-full',
+            view.tone === 'you' ? 'bg-emerald-500 text-pure' : view.tone === 'interviewer' ? 'bg-primary text-pure' : 'bg-slate-800 text-slate-300',
+          )}
+        >
+          {view.tone === 'you' ? <Mic className="h-6 w-6" aria-hidden="true" /> : <Volume2 className="h-6 w-6" aria-hidden="true" />}
+        </span>
+        <div aria-live="polite">
+          <p className="text-lg font-semibold text-white">{view.title}</p>
+          {view.detail ? <p className="mt-1 text-sm text-slate-400">{view.detail}</p> : null}
         </div>
-        <LevelMeter level={level} active={listening} />
+        <Waveform level={level} tone={view.tone} />
+        {error ? <p className="text-sm text-amber-300">{error}</p> : null}
       </div>
 
-      {error ? <p className="mt-3 text-sm text-amber-300">{error}</p> : null}
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {listening ? (
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+        {phase === 'listening' ? (
           <Button type="button" className="gap-2 px-4 py-2" onClick={onFinishAnswer}>
             <Square className="h-4 w-4" />
-            I&apos;m done answering
+            I&apos;m done
           </Button>
         ) : null}
         {phase === 'idle' ? (
@@ -104,27 +126,14 @@ export function VoiceInterviewBar({
             Send again
           </Button>
         ) : null}
-        <Button type="button" variant="ghost" className="px-4 py-2" onClick={onStop}>
-          Stop voice mode
+        <Button type="button" variant="ghost" className="gap-2 px-4 py-2" onClick={onTypeInstead}>
+          <Keyboard className="h-4 w-4" />
+          Type instead
         </Button>
-
-        {voices.length > 1 ? (
-          <label className="ml-auto flex items-center gap-2 text-xs text-slate-400">
-            Interviewer voice
-            <select
-              value={voiceName ?? ''}
-              onChange={(event) => onVoiceChange(event.target.value)}
-              className="max-w-[200px] rounded-xl border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
-            >
-              {voices.map((voice) => (
-                <option key={voice.name} value={voice.name}>
-                  {voice.name} ({voice.lang})
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
+        <Button type="button" variant="secondary" className="px-4 py-2" onClick={onEndInterview} disabled={ending}>
+          {ending ? 'Ending…' : 'End interview'}
+        </Button>
       </div>
-    </div>
+    </section>
   )
 }

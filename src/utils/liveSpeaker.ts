@@ -14,6 +14,11 @@ function getContext() {
   return audioContext
 }
 
+/** True once audio can play without another tap (the audio context is running). */
+export function isAudioUnlocked() {
+  return audioContext?.state === 'running'
+}
+
 /** Call from a click/tap handler before voice starts: browsers only allow audio after a user gesture. */
 export function unlockAudio() {
   const context = getContext()

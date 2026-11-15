@@ -13,6 +13,7 @@ import { Button } from '../components/ui/Button'
 import { ErrorToast } from '../components/ui/ErrorToast'
 import { CompanyMonogram } from '../components/company/CompanyMonogram'
 import { useInterviewStore } from '../store/interviewStore'
+import { unlockAudio } from '../utils/liveSpeaker'
 import { cn } from '../utils/cn'
 
 const roleLevels: CompanyRoleLevel[] = ['FE1', 'FE2']
@@ -30,6 +31,8 @@ export default function CompanyPage() {
   const roleInfo = roleDefinitions[role]
 
   const handleStart = async (round: CompanyRoundBlueprint) => {
+    // This tap allows the interviewer's voice to play as soon as the interview page opens.
+    unlockAudio()
     setStartingRound(round.type)
     const session = await startInterview(round.type, roleInfo.difficulty, undefined, { companyId: company.id, role })
     setStartingRound(null)
