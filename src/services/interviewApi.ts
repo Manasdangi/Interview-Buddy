@@ -136,6 +136,21 @@ export const sendInterviewMessageStream = async (sessionId: string, message: str
   }
 }
 
+/** Natural Indian-English interviewer voice streamed as raw 24 kHz mono 16-bit PCM (starts in well under a second). */
+export const openSpeechStream = (sessionId: string, text: string, signal: AbortSignal) => {
+  const token = getAuthToken()
+  return fetch(`${baseURL}/interviews/speech-stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...sessionHeaders(sessionId),
+    },
+    body: JSON.stringify({ sessionId, text }),
+    signal,
+  })
+}
+
 /** Natural Indian-English interviewer voice for one sentence; returns base64 WAV audio. */
 export const synthesizeSpeech = async (sessionId: string, text: string) => {
   const response = await client.post<{ audioBase64: string; mimeType: string }>(

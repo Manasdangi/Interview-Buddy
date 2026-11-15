@@ -1,21 +1,30 @@
-import { synthesizeSpeech } from '../services/interviewApi'
+import { openSpeechStream } from '../services/interviewApi'
 import { isSpeechSynthesisSupported, takeSentences, toSpeakableText } from './speech'
 
-/** A tiny silent WAV, played during a click so later (non-click) playback is allowed on mobile browsers. */
-const silentWav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='
+const sampleRate = 24_000
+/** Group tiny network chunks into ~0.2 s buffers for smooth, gapless playback. */
+const minScheduleSamples = 4_800
 
-let sharedAudio: HTMLAudioElement | null = null
-function getAudio() {
-  if (!sharedAudio && typeof Audio !== 'undefined') sharedAudio = new Audio()
-  return sharedAudio
+let audioContext: AudioContext | null = null
+function getContext() {
+  if (typeof window === 'undefined') return null
+  const Context = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!Context) return null
+  audioContext ??= new Context()
+  return audioContext
 }
 
-/** Call from a click/tap handler before live voice starts. */
+/** Call from a click/tap handler before voice starts: browsers only allow audio after a user gesture. */
 export function unlockAudio() {
-  const audio = getAudio()
-  if (!audio) return
-  audio.src = silentWav
-  void audio.play().catch(() => undefined)
+  const context = getContext()
+  if (context) {
+    void context.resume().catch(() => undefined)
+    // A one-sample silent buffer fully unlocks audio on iOS.
+    const source = context.createBufferSource()
+    source.buffer = context.createBuffer(1, 1, sampleRate)
+    source.connect(context.destination)
+    source.start()
+  }
   if (isSpeechSynthesisSupported()) window.speechSynthesis.resume()
 }
 
@@ -32,11 +41,59 @@ type SpeakerOptions = {
   onIdle?: () => void
 }
 
-type QueueItem = { text: string; audio: Promise<string | null> }
+/** One sentence: its audio streams in from the server (prefetched while earlier sentences play). */
+type QueueItem = {
+  text: string
+  samples: Float32Array[]
+  done: boolean
+  failed: boolean
+  abort: AbortController
+  notify: (() => void) | null
+}
+
+function startAudioStream(sessionId: string, item: QueueItem) {
+  const finish = (failed: boolean) => {
+    item.done = true
+    item.failed = failed
+    item.notify?.()
+  }
+  if (naturalFailures >= maxNaturalFailures) return finish(true)
+
+  void (async () => {
+    try {
+      const response = await openSpeechStream(sessionId, item.text, item.abort.signal)
+      if (!response.ok || !response.body) throw new Error('Natural voice unavailable.')
+      const reader = response.body.getReader()
+      let leftover: Uint8Array | null = null
+      for (;;) {
+        const { value, done } = await reader.read()
+        if (done) break
+        // 16-bit little-endian samples can be split across network chunks.
+        const bytes: Uint8Array = leftover ? new Uint8Array([...leftover, ...value]) : value
+        const usable = bytes.length - (bytes.length % 2)
+        leftover = usable < bytes.length ? bytes.slice(usable) : null
+        const view = new DataView(bytes.buffer, bytes.byteOffset, usable)
+        const floats = new Float32Array(usable / 2)
+        for (let index = 0; index < floats.length; index += 1) floats[index] = view.getInt16(index * 2, true) / 32768
+        if (floats.length) {
+          item.samples.push(floats)
+          item.notify?.()
+        }
+      }
+      naturalFailures = 0
+      finish(false)
+    } catch {
+      if (item.abort.signal.aborted) return
+      naturalFailures += 1
+      finish(item.samples.length === 0)
+    }
+  })()
+}
 
 /**
- * Speaks interviewer text sentence by sentence in a natural Indian-English voice (server TTS), fetching the next
- * sentence while the current one plays. Falls back to the browser's voice if the natural voice is unavailable.
+ * Speaks interviewer text sentence by sentence in a natural Indian-English voice. Each sentence's audio streams
+ * from the server and starts playing on the first chunk; later sentences are fetched while earlier ones play.
+ * Falls back to the browser's voice if the natural voice or Web Audio is unavailable.
  */
 export class LiveSpeaker {
   private queue: QueueItem[] = []
@@ -45,10 +102,9 @@ export class LiveSpeaker {
   private playing = false
   private generation = 0
   private stopCurrent: (() => void) | null = null
+  private readonly options: SpeakerOptions
   /** Everything spoken in the current turn, used to recognise the interviewer's own voice as echo. */
   spokenText = ''
-
-  private readonly options: SpeakerOptions
 
   constructor(options: SpeakerOptions) {
     this.options = options
@@ -84,6 +140,7 @@ export class LiveSpeaker {
 
   stop() {
     this.generation += 1
+    this.queue.forEach((item) => item.abort.abort())
     this.queue = []
     this.buffer = ''
     this.ended = true
@@ -97,28 +154,17 @@ export class LiveSpeaker {
     const text = toSpeakableText(raw)
     if (!text) return
     this.spokenText += ` ${text}`
-    this.queue.push({ text, audio: this.fetchAudio(text) })
-    void this.pump()
-  }
-
-  private async fetchAudio(text: string) {
-    if (naturalFailures >= maxNaturalFailures) return null
-    try {
-      const { audioBase64, mimeType } = await synthesizeSpeech(this.options.sessionId, text)
-      naturalFailures = 0
-      const bytes = Uint8Array.from(atob(audioBase64), (char) => char.charCodeAt(0))
-      return URL.createObjectURL(new Blob([bytes], { type: mimeType }))
-    } catch {
-      naturalFailures += 1
-      return null
-    }
+    const item: QueueItem = { text, samples: [], done: false, failed: false, abort: new AbortController(), notify: null }
+    startAudioStream(this.options.sessionId, item)
+    this.queue.push(item)
+    this.pump()
   }
 
   private checkIdle() {
     if (!this.playing && !this.queue.length && this.ended) this.options.onIdle?.()
   }
 
-  private async pump() {
+  private pump() {
     if (this.playing) return
     const item = this.queue[0]
     if (!item) return this.checkIdle()
@@ -126,44 +172,84 @@ export class LiveSpeaker {
     const generation = this.generation
     this.playing = true
     this.options.onStart?.()
-    const url = await item.audio
-    if (generation !== this.generation) {
-      if (url) URL.revokeObjectURL(url)
-      return
-    }
 
     const next = () => {
       if (generation !== this.generation) return
-      if (url) URL.revokeObjectURL(url)
       this.stopCurrent = null
       this.queue.shift()
       this.playing = false
-      void this.pump()
+      this.pump()
     }
 
-    if (url && (await this.playAudio(url, next))) return
-    this.speakWithBrowser(item.text, next)
+    const context = getContext()
+    const begin = () => {
+      if (generation !== this.generation) return
+      item.notify = null
+      if (item.failed || !context || context.state !== 'running') {
+        this.speakWithBrowser(item.text, next)
+        return
+      }
+      this.playStream(context, item, next)
+    }
+
+    // Wait for the first audio (or a failure) before deciding how to speak this sentence.
+    if (item.samples.length || item.done) begin()
+    else
+      item.notify = () => {
+        if (item.samples.length || item.done) begin()
+      }
   }
 
-  /** Resolves false if the browser refused to play (autoplay rules), so the caller can fall back. */
-  private async playAudio(url: string, onDone: () => void) {
-    const audio = getAudio()
-    if (!audio) return false
-    audio.onended = onDone
-    audio.onerror = onDone
-    audio.src = url
+  private playStream(context: AudioContext, item: QueueItem, onDone: () => void) {
+    const gain = context.createGain()
+    gain.connect(context.destination)
+    let nextStart = context.currentTime + 0.03
+    let scheduled = 0
+    let finishTimer: number | undefined
+
+    const finishAfter = () => {
+      window.clearTimeout(finishTimer)
+      const remaining = Math.max(0, nextStart - context.currentTime)
+      finishTimer = window.setTimeout(() => {
+        item.notify = null
+        gain.disconnect()
+        onDone()
+      }, remaining * 1000 + 60)
+    }
+
+    const schedule = () => {
+      const pending = item.samples.slice(scheduled)
+      const total = pending.reduce((sum, chunk) => sum + chunk.length, 0)
+      if (!total || (total < minScheduleSamples && !item.done)) {
+        if (item.done && !total) finishAfter()
+        return
+      }
+      scheduled = item.samples.length
+      const merged = new Float32Array(total)
+      let offset = 0
+      for (const chunk of pending) {
+        merged.set(chunk, offset)
+        offset += chunk.length
+      }
+      const audioBuffer = context.createBuffer(1, merged.length, sampleRate)
+      audioBuffer.getChannelData(0).set(merged)
+      const source = context.createBufferSource()
+      source.buffer = audioBuffer
+      source.connect(gain)
+      if (nextStart < context.currentTime) nextStart = context.currentTime + 0.02
+      source.start(nextStart)
+      nextStart += audioBuffer.duration
+      if (item.done) finishAfter()
+    }
+
+    item.notify = schedule
     this.stopCurrent = () => {
-      audio.onended = null
-      audio.onerror = null
-      audio.pause()
+      item.notify = null
+      window.clearTimeout(finishTimer)
+      item.abort.abort()
+      gain.disconnect()
     }
-    try {
-      await audio.play()
-      return true
-    } catch {
-      this.stopCurrent = null
-      return false
-    }
+    schedule()
   }
 
   private speakWithBrowser(text: string, onDone: () => void) {

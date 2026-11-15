@@ -1,4 +1,4 @@
-import { flattenValues, runHandler, type ApiHandler, type ApiRequest, type MessageStreamEvent } from './handlers.js'
+import { flattenValues, runHandler, toErrorResult, type ApiHandler, type ApiRequest, type MessageStreamEvent } from './handlers.js'
 
 type VercelRequest = {
   method?: string
@@ -97,6 +97,47 @@ export function createWebStreamHandler(
         'Cache-Control': 'no-cache, no-transform',
         'X-Accel-Buffering': 'no',
       },
+    })
+  }
+}
+
+async function toWebApiRequest(request: Request, params: Record<string, string>): Promise<ApiRequest> {
+  const headers: Record<string, string> = {}
+  request.headers.forEach((value, key) => {
+    headers[key.toLowerCase()] = value
+  })
+  return {
+    params,
+    body: await request.json().catch(() => ({})),
+    headers,
+    ip: headers['x-forwarded-for']?.split(',')[0]?.trim(),
+  }
+}
+
+/** Streams raw audio bytes; validation errors are returned as JSON before streaming starts. */
+export function createWebAudioStreamHandler(prepare: (req: ApiRequest) => Promise<(write: (chunk: Uint8Array) => void) => Promise<void>>) {
+  return async (request: Request) => {
+    let run: (write: (chunk: Uint8Array) => void) => Promise<void>
+    try {
+      run = await prepare(await toWebApiRequest(request, {}))
+    } catch (error) {
+      const result = toErrorResult(error)
+      return Response.json(result.body, { status: result.status })
+    }
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        try {
+          await run((chunk) => controller.enqueue(chunk))
+          controller.close()
+        } catch (error) {
+          console.error(error)
+          controller.error(error)
+        }
+      },
+    })
+    return new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'audio/L16; rate=24000; channels=1', 'Cache-Control': 'no-cache, no-transform' },
     })
   }
 }

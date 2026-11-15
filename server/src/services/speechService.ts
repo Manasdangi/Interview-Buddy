@@ -9,6 +9,8 @@ const SAMPLE_RATE = 24_000
 export const maxSpeechTextLength = 600
 
 const cache = new Map<string, string>()
+const voiceDirection =
+  'Read this aloud exactly as written, in a natural Indian English accent, like a calm, friendly senior software engineer from Bengaluru conducting a technical interview. Speak at a relaxed, conversational pace:'
 const cacheLimit = 200
 
 type TtsResponse = {
@@ -42,7 +44,7 @@ export async function synthesizeSpeech(text: string) {
   const cached = cache.get(text)
   if (cached) return cached
 
-  const prompt = `Read this aloud exactly as written, in a natural Indian English accent, like a calm, friendly senior software engineer from Bengaluru conducting a technical interview. Speak at a relaxed, conversational pace:\n${text}`
+  const prompt = `${voiceDirection}\n${text}`
 
   let response: Response
   try {
@@ -78,33 +80,77 @@ export async function synthesizeSpeech(text: string) {
   return wavBase64
 }
 
-/** Diagnostics only: time to first audio chunk with Gemini's streaming endpoint. */
-export async function probeStreamingSpeech(text: string) {
+const pcmCache = new Map<string, Buffer>()
+
+/**
+ * Streams the text as raw 24 kHz mono 16-bit PCM in a natural Indian English voice, calling `onAudio` with each
+ * piece as soon as Gemini produces it (first audio usually arrives well under a second).
+ */
+export async function streamSpeech(text: string, onAudio: (pcm: Buffer) => void) {
   const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) throw new HttpError(503, 'No GEMINI_API_KEY.')
-  const started = Date.now()
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:streamGenerateContent?alt=sse`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: `Read this aloud in a natural Indian English accent:\n${text}` }] }],
-      generationConfig: {
-        responseModalities: ['AUDIO'],
-        speechConfig: { languageCode: 'en-IN', voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } },
-      },
-    }),
-  })
-  if (!response.ok || !response.body) return { status: response.status, error: (await response.text()).slice(0, 300) }
+  if (!apiKey) throw new HttpError(503, 'Natural voice needs GEMINI_API_KEY on the backend.')
+
+  const cached = pcmCache.get(text)
+  if (cached) {
+    onAudio(cached)
+    return
+  }
+
+  let response: Response
+  try {
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:streamGenerateContent?alt=sse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${voiceDirection}\n${text}` }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: { languageCode: 'en-IN', voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } },
+        },
+      }),
+      signal: AbortSignal.timeout(TTS_TIMEOUT_MS),
+    })
+  } catch {
+    throw new HttpError(502, 'Natural voice is unavailable right now.')
+  }
+  if (!response.ok || !response.body) {
+    console.error('TTS stream failed', response.status, (await response.text().catch(() => '')).slice(0, 300))
+    throw new HttpError(response.status === 429 ? 429 : 502, 'Natural voice is unavailable right now.')
+  }
+
   const reader = response.body.getReader()
-  let firstChunkMs: number | null = null
-  let chunks = 0
-  let bytes = 0
+  const decoder = new TextDecoder()
+  const pieces: Buffer[] = []
+  let pending = ''
+  const handleEvent = (raw: string) => {
+    const data = raw
+      .split('\n')
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trim())
+      .join('')
+    if (!data) return
+    const parsed = JSON.parse(data) as TtsResponse
+    for (const part of parsed.candidates?.[0]?.content?.parts ?? []) {
+      if (!part.inlineData?.data) continue
+      const pcm = Buffer.from(part.inlineData.data, 'base64')
+      pieces.push(pcm)
+      onAudio(pcm)
+    }
+  }
   for (;;) {
     const { value, done } = await reader.read()
     if (done) break
-    if (firstChunkMs === null) firstChunkMs = Date.now() - started
-    chunks += 1
-    bytes += value.length
+    pending += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n')
+    let boundary = pending.indexOf('\n\n')
+    while (boundary !== -1) {
+      handleEvent(pending.slice(0, boundary))
+      pending = pending.slice(boundary + 2)
+      boundary = pending.indexOf('\n\n')
+    }
   }
-  return { status: response.status, firstChunkMs, totalMs: Date.now() - started, chunks, bytes }
+  if (pending.trim()) handleEvent(pending)
+  if (!pieces.length) throw new HttpError(502, 'Natural voice returned no audio.')
+
+  if (pcmCache.size >= cacheLimit) pcmCache.delete(pcmCache.keys().next().value as string)
+  pcmCache.set(text, Buffer.concat(pieces))
 }

@@ -8,7 +8,9 @@ import {
   postMessage,
   runHandler,
   saveSummary,
+  prepareSpeechStream,
   speech,
+  toErrorResult,
   startInterview,
   streamMessage,
   transcribe,
@@ -29,6 +31,18 @@ const route = (handler: ApiHandler) => (req: Request, res: Response) => {
 router.post('/start', route(startInterview))
 router.post('/transcribe', route(transcribe))
 router.post('/speech', route(speech))
+router.post('/speech-stream', async (req: Request, res: Response) => {
+  try {
+    const run = await prepareSpeechStream({ params: {}, body: req.body, headers: flattenValues(req.headers, true), ip: req.ip })
+    res.setHeader('Content-Type', 'audio/L16; rate=24000; channels=1')
+    await run((chunk) => res.write(chunk))
+    res.end()
+  } catch (error) {
+    if (res.headersSent) return res.end()
+    const result = toErrorResult(error)
+    res.status(result.status).json(result.body)
+  }
+})
 router.post('/:sessionId/message-stream', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
   res.setHeader('Cache-Control', 'no-cache, no-transform')

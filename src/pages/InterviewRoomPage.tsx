@@ -154,12 +154,13 @@ export default function InterviewRoomPage() {
 
   useEffect(() => {
     // Voice interview mode reads the questions itself; in typed mode the interviewer still speaks every question.
-    if (voiceInterview) return
+    // Wait until the candidate picks how to answer (that tap also allows audio), then read questions aloud.
+    if (voiceInterview || showAnswerModeChoice) return
 
     const newest = currentSession?.messages.at(-1)
     if (!newest || newest.role !== 'AI' || newest.id === lastSpokenMessageIdRef.current) return
     onNewQuestion(newest)
-  }, [currentSession?.messages, voiceInterview])
+  }, [currentSession?.messages, voiceInterview, showAnswerModeChoice])
 
   useEffect(() => {
     if (typeof window === 'undefined') return

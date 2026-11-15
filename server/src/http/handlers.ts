@@ -10,7 +10,7 @@ import {
   transcribeSessionAudio,
   type SessionAccess,
 } from '../services/interviewSessionService.js'
-import { probeStreamingSpeech } from '../services/speechService.js'
+import { maxSpeechTextLength, streamSpeech } from '../services/speechService.js'
 import { listSummariesForUser, saveCompletedSummary, saveQuitSummary } from '../services/interviewSummaryService.js'
 import { enforceRateLimit } from './rateLimit.js'
 
@@ -114,15 +114,28 @@ export async function streamMessage(req: ApiRequest, send: (event: MessageStream
 
 export const speech: ApiHandler = async (req) => {
   const access = await getAccess(req)
-  const { sessionId, text, probe } = getBody(req)
+  const { sessionId, text } = getBody(req)
   const id = typeof sessionId === 'string' ? sessionId : undefined
   enforceRateLimit(`speech:${id ?? req.ip ?? 'unknown'}`, 400, hourMs)
-  if (probe === 'stream' && typeof text === 'string') {
-    await getAuthorizedSession(id, access)
-    return { status: 200, body: await probeStreamingSpeech(text.slice(0, 300)) }
-  }
+
   const audioBase64 = await speakForSession(id, text, access)
   return { status: 200, body: { audioBase64, mimeType: 'audio/wav' } }
+}
+
+/**
+ * Validates a natural-voice request and returns a function that streams raw PCM audio to `write`.
+ * Errors before the first byte become normal HTTP errors.
+ */
+export async function prepareSpeechStream(req: ApiRequest) {
+  const access = await getAccess(req)
+  const { sessionId, text } = getBody(req)
+  const id = typeof sessionId === 'string' ? sessionId : undefined
+  enforceRateLimit(`speech:${id ?? req.ip ?? 'unknown'}`, 400, hourMs)
+  const spoken = typeof text === 'string' ? text.trim() : ''
+  if (!spoken) throw new HttpError(400, 'Text is required.')
+  if (spoken.length > maxSpeechTextLength) throw new HttpError(400, `Text is limited to ${maxSpeechTextLength} characters.`)
+  await getAuthorizedSession(id, access)
+  return (write: (pcm: Uint8Array) => void) => streamSpeech(spoken, write)
 }
 
 export const completeInterview: ApiHandler = async (req) => {
