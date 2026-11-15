@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { companies, findCompany, findCompanyRound } from '../../../shared/companyCatalog.js'
+import { companies, companyDomains, findCompany, findCompanyRound } from '../../../shared/companyCatalog.js'
 
 vi.mock('./claudeService.js', () => ({
   generateText: vi.fn(async () => 'Welcome to the mock round. First question?'),
@@ -15,6 +15,10 @@ const { buildScorecardPrompt } = await import('./interviewPromptService.js')
 const { parseScorecard } = await import('./aiResponseParsing.js')
 
 describe('company catalog', () => {
+  it('has a logo domain for every company', () => {
+    for (const company of companies) expect(companyDomains[company.id], company.id).toMatch(/^[a-z0-9.-]+\.[a-z]+$/)
+  })
+
   it('has unique ids and every round has enough distinct topics for varied attempts', () => {
     expect(companies.length).toBeGreaterThanOrEqual(100)
     expect(new Set(companies.map((company) => company.id)).size).toBe(companies.length)

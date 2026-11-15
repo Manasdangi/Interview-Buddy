@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { companyDomains } from '../../../shared/companyCatalog'
 import { cn } from '../../utils/cn'
 
 const palettes = [
@@ -9,8 +11,35 @@ const palettes = [
   'bg-rose-500/20 text-rose-200 ring-rose-400/30',
 ]
 
-/** A neutral letter mark (no company logos) with a stable colour per name. */
-export function CompanyMonogram({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) {
+function logoUrl(domain: string) {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`
+}
+
+/**
+ * The company's own logo, loaded from its website domain, on a light tile so dark logos stay visible.
+ * Falls back to a letter mark when the logo can't be loaded.
+ */
+export function CompanyMonogram({ companyId, name, size = 'md' }: { companyId?: string; name: string; size?: 'md' | 'lg' }) {
+  const domain = companyId ? companyDomains[companyId] : undefined
+  const [failed, setFailed] = useState(false)
+  const box = size === 'lg' ? 'h-16 w-16 rounded-2xl' : 'h-11 w-11 rounded-xl'
+
+  if (domain && !failed) {
+    return (
+      <span className={cn('grid shrink-0 place-items-center bg-white p-1.5 ring-1 ring-slate-700', box)}>
+        <img
+          src={logoUrl(domain)}
+          alt={`${name} logo`}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className="h-full w-full object-contain"
+          onError={() => setFailed(true)}
+        />
+      </span>
+    )
+  }
+
   const hash = [...name].reduce((total, char) => total + char.charCodeAt(0), 0)
   const letters = name
     .split(/\s+/)
@@ -22,11 +51,7 @@ export function CompanyMonogram({ name, size = 'md' }: { name: string; size?: 'm
   return (
     <span
       aria-hidden="true"
-      className={cn(
-        'grid shrink-0 place-items-center rounded-2xl font-semibold ring-1',
-        size === 'lg' ? 'h-16 w-16 text-2xl' : 'h-11 w-11 text-base',
-        palettes[hash % palettes.length],
-      )}
+      className={cn('grid shrink-0 place-items-center font-semibold ring-1', box, size === 'lg' ? 'text-2xl' : 'text-base', palettes[hash % palettes.length])}
     >
       {letters}
     </span>

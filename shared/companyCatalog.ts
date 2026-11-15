@@ -1375,3 +1375,29 @@ export function findCompanyRound(company: Company, type: unknown): CompanyRoundB
 export function isCompanyRoleLevel(value: unknown): value is CompanyRoleLevel {
   return value === 'FE1' || value === 'FE2'
 }
+
+/** Official website domain per company, used only to load the company's own logo for identification. */
+export const companyDomains: Record<string, string> = {
+  amazon: 'amazon.com', google: 'google.com', microsoft: 'microsoft.com', apple: 'apple.com', atlassian: 'atlassian.com',
+  adobe: 'adobe.com', salesforce: 'salesforce.com', uber: 'uber.com', expedia: 'expedia.com', walmart: 'walmart.com',
+  flipkart: 'flipkart.com', phonepe: 'phonepe.com', paytm: 'paytm.com', razorpay: 'razorpay.com', cred: 'cred.club',
+  swiggy: 'swiggy.com', zomato: 'zomato.com', meesho: 'meesho.com', zepto: 'zeptonow.com', airtel: 'airtel.in',
+  meta: 'meta.com', netflix: 'netflix.com', linkedin: 'linkedin.com', airbnb: 'airbnb.com', booking: 'booking.com',
+  agoda: 'agoda.com', oracle: 'oracle.com', 'sap-labs': 'sap.com', cisco: 'cisco.com', intuit: 'intuit.com',
+  servicenow: 'servicenow.com', workday: 'workday.com', 'broadcom-vmware': 'vmware.com', nutanix: 'nutanix.com',
+  twilio: 'twilio.com', sprinklr: 'sprinklr.com', thoughtworks: 'thoughtworks.com', 'publicis-sapient': 'publicissapient.com',
+  paypal: 'paypal.com', visa: 'visa.com', mastercard: 'mastercard.com', amex: 'americanexpress.com',
+  'goldman-sachs': 'goldmansachs.com', jpmorgan: 'jpmorganchase.com', 'morgan-stanley': 'morganstanley.com',
+  juspay: 'juspay.in', groww: 'groww.in', zerodha: 'zerodha.com', upstox: 'upstox.com', policybazaar: 'policybazaar.com',
+  mobikwik: 'mobikwik.com', bharatpe: 'bharatpe.com', slice: 'sliceit.com', jupiter: 'jupiter.money', navi: 'navi.com',
+  indmoney: 'indmoney.com', 'pine-labs': 'pinelabs.com', zeta: 'zeta.tech', acko: 'acko.com', jar: 'myjar.app',
+  myntra: 'myntra.com', nykaa: 'nykaa.com', 'reliance-jio': 'jio.com', jiohotstar: 'hotstar.com', 'tata-1mg': '1mg.com',
+  pharmeasy: 'pharmeasy.in', practo: 'practo.com', lenskart: 'lenskart.com', 'urban-company': 'urbancompany.com',
+  ola: 'olacabs.com', rapido: 'rapido.bike', makemytrip: 'makemytrip.com', cleartrip: 'cleartrip.com', oyo: 'oyorooms.com',
+  ixigo: 'ixigo.com', bigbasket: 'bigbasket.com', blinkit: 'blinkit.com', licious: 'licious.in', delhivery: 'delhivery.com',
+  cardekho: 'cardekho.com', cars24: 'cars24.com', 'info-edge': 'naukri.com', dream11: 'dream11.com', mpl: 'mpl.live',
+  games24x7: 'games24x7.com', sharechat: 'sharechat.com', inmobi: 'inmobi.com', unacademy: 'unacademy.com',
+  physicswallah: 'pw.live', upgrad: 'upgrad.com', vedantu: 'vedantu.com', zoho: 'zoho.com', freshworks: 'freshworks.com',
+  postman: 'postman.com', browserstack: 'browserstack.com', chargebee: 'chargebee.com', innovaccer: 'innovaccer.com',
+  harness: 'harness.io', rippling: 'rippling.com', tekion: 'tekion.com',
+}

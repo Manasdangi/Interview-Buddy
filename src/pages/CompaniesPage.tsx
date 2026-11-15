@@ -66,7 +66,7 @@ export default function CompaniesPage() {
               className="group flex flex-col rounded-3xl border border-slate-800/80 bg-slate-950/90 p-5 shadow-soft transition hover:border-indigo-400/60 hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <div className="flex items-center gap-3">
-                <CompanyMonogram name={company.name} />
+                <CompanyMonogram companyId={company.id} name={company.name} />
                 <div>
                   <h2 className="text-lg font-semibold text-white">{company.name}</h2>
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{companyCategoryLabels[company.category]}</p>
@@ -84,7 +84,7 @@ export default function CompaniesPage() {
       )}
 
       <p className="text-xs text-slate-500">
-        Company names are used only to describe the style of practice. Interview Buddy is not affiliated with or endorsed by these companies, and
+        Company names and logos are trademarks of their respective owners and are used only to identify the company a practice round is modelled on. Interview Buddy is not affiliated with or endorsed by these companies, and
         questions are original practice questions, not real or leaked interview questions.
       </p>
     </div>

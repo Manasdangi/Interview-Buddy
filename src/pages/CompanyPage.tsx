@@ -44,7 +44,7 @@ export default function CompanyPage() {
 
       <div className="rounded-[2rem] border border-slate-800/80 bg-slate-950/90 p-8 shadow-soft">
         <div className="flex flex-wrap items-center gap-5">
-          <CompanyMonogram name={company.name} size="lg" />
+          <CompanyMonogram companyId={company.id} name={company.name} size="lg" />
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{companyCategoryLabels[company.category]}</p>
             <h1 className="mt-1 text-4xl font-semibold text-white">{company.name} frontend mock interview</h1>
@@ -127,7 +127,7 @@ export default function CompanyPage() {
 
       <p className="text-xs text-slate-500">
         Rounds are modelled on publicly reported interview patterns and use original practice questions. Interview Buddy is not affiliated with
-        or endorsed by {company.name}. Each attempt picks a different mix of topics.
+        or endorsed by {company.name}; its name and logo belong to {company.name}. Each attempt picks a different mix of topics.
       </p>
       <ErrorToast message={error} />
     </div>
