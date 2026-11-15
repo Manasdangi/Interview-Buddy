@@ -62,3 +62,41 @@ export function createVercelHandler(method: 'GET' | 'POST', handler: ApiHandler)
     return res.status(result.status).json(result.body)
   }
 }
+
+/**
+ * Web-standard streaming handler (Request -> Response with a ReadableStream). Vercel streams these responses on
+ * every plan, unlike the (req, res) style which can be buffered until the function finishes.
+ */
+export function createWebStreamHandler(
+  run: (req: ApiRequest, send: (event: MessageStreamEvent) => void) => Promise<void>,
+  getParams: (url: URL) => Record<string, string>,
+) {
+  return async (request: Request) => {
+    const headers: Record<string, string> = {}
+    request.headers.forEach((value, key) => {
+      headers[key.toLowerCase()] = value
+    })
+    const body: unknown = await request.json().catch(() => ({}))
+    const apiRequest: ApiRequest = {
+      params: getParams(new URL(request.url)),
+      body,
+      headers,
+      ip: headers['x-forwarded-for']?.split(',')[0]?.trim(),
+    }
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        await run(apiRequest, (event) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`)))
+        controller.close()
+      },
+    })
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/x-ndjson; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'X-Accel-Buffering': 'no',
+      },
+    })
+  }
+}
