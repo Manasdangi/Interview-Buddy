@@ -20,7 +20,7 @@ describe('company catalog', () => {
   })
 
   it('has unique ids and every round has enough distinct topics for varied attempts', () => {
-    expect(companies.length).toBeGreaterThanOrEqual(100)
+    expect(companies.length).toBeGreaterThanOrEqual(110)
     expect(new Set(companies.map((company) => company.id)).size).toBe(companies.length)
     expect(new Set(companies.map((company) => company.name)).size).toBe(companies.length)
     for (const company of companies) {

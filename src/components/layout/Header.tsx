@@ -1,10 +1,11 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { LogIn, LogOut } from 'lucide-react'
+import { LogIn, LogOut, Moon, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import { useInterviewStore } from '../../store/interviewStore'
 import { saveQuitSummary } from '../../services/interviewApi'
 import { cn } from '../../utils/cn'
+import { useTheme } from '../../hooks/useTheme'
 import { Button } from '../ui/Button'
 
 const navItems = [
@@ -27,6 +28,7 @@ function getAvatarLabel(name: string | null, email: string | null) {
 export function Header() {
   const { authEnabled, authError, authReady, initAuth, signInWithGoogle, signOutUser, user } = useAuthStore()
   const { currentSession, resetInterview } = useInterviewStore()
+  const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
   const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null)
@@ -53,9 +55,10 @@ export function Header() {
   }
 
   return (
-    <header className="border-b border-slate-800/70 bg-slate-950/95 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-slate-800/70 bg-slate-950/85 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4">
-        <Link to="/" className="text-xl font-semibold text-white">
+        <Link to="/" className="flex items-center gap-2.5 text-xl font-semibold text-white">
+          <img src="/favicon.svg" alt="" className="h-8 w-8" />
           Interview Buddy
         </Link>
         <nav className="flex flex-wrap items-center justify-end gap-3">
@@ -74,6 +77,15 @@ export function Header() {
             </NavLink>
           ))}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              className="grid h-10 w-10 place-items-center rounded-full border border-slate-800 bg-slate-900 text-slate-300 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
+            </button>
             {user ? (
               <>
                 <div className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-200 sm:flex">

@@ -159,7 +159,7 @@ export function ScoreCard({ scorecard, messages = [], startedAt, completedAt }: 
           <ol className="mt-3 space-y-3 text-slate-200">
             {topFixes.map((item, index) => (
               <li key={item} className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">{index + 1}</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-pure">{index + 1}</span>
                 <span className="leading-6">{item}</span>
               </li>
             ))}

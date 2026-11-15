@@ -1,21 +1,34 @@
 /** @type {import('tailwindcss').Config} */
+const scale = (name) =>
+  Object.fromEntries(
+    ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'].map((step) => [step, `rgb(var(--c-${name}-${step}) / <alpha-value>)`]),
+  )
+
+// Colours are CSS variables (see src/theme.css) so one set of classes serves both light and dark themes.
+const themed = Object.fromEntries(['slate', 'indigo', 'rose', 'emerald', 'amber', 'cyan', 'fuchsia'].map((name) => [name, scale(name)]))
+
 export default {
-  content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  darkMode: 'class',
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        surface: "#0f172a",
-        surface2: "#111827",
-        surface3: "#1f2937",
-        border: "#334155",
-        muted: "#94a3b8",
-        primary: "#6366f1",
-        accent: "#7c3aed",
+        ...themed,
+        white: 'rgb(var(--c-white) / <alpha-value>)',
+        /** Always white, e.g. text on the primary button, in both themes. */
+        pure: '#ffffff',
+        surface: 'rgb(var(--c-slate-900) / <alpha-value>)',
+        surface2: 'rgb(var(--c-slate-900) / <alpha-value>)',
+        surface3: 'rgb(var(--c-slate-800) / <alpha-value>)',
+        border: 'rgb(var(--c-slate-700) / <alpha-value>)',
+        muted: 'rgb(var(--c-slate-400) / <alpha-value>)',
+        primary: '#6366f1',
+        accent: '#7c3aed',
       },
       boxShadow: {
-        soft: "0 20px 60px rgba(15, 23, 42, 0.25)",
+        soft: 'var(--shadow-soft)',
       },
     },
   },
   plugins: [],
-};
+}

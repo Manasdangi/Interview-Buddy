@@ -93,7 +93,7 @@ export default function SelectDifficultyPage() {
               <span
                 className={cn(
                   'grid h-8 w-8 shrink-0 place-items-center rounded-full border transition',
-                  selected === item.value ? 'border-indigo-300 bg-primary text-white' : 'border-slate-700 text-slate-600 group-hover:text-slate-300',
+                  selected === item.value ? 'border-indigo-300 bg-primary text-pure' : 'border-slate-700 text-slate-600 group-hover:text-slate-300',
                 )}
                 aria-hidden="true"
               >

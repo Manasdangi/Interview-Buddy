@@ -3,6 +3,7 @@ import { RotateCcw } from 'lucide-react'
 import { useEffect } from 'react'
 import { starterCode } from '../../utils/starterCode'
 import { Button } from '../ui/Button'
+import { useTheme } from '../../hooks/useTheme'
 
 const appPath = '/App.tsx'
 
@@ -51,11 +52,12 @@ function EditorBridge({ sessionId, onCodeChange }: CodeEditorPanelProps) {
 }
 
 export default function CodeEditorPanel({ sessionId, onCodeChange }: CodeEditorPanelProps) {
+  const { theme } = useTheme()
   return (
     <div className="space-y-2">
       <SandpackProvider
         template="react-ts"
-        theme="dark"
+        theme={theme}
         files={{ [appPath]: { code: loadSavedCode(sessionId), active: true } }}
         options={{ recompileMode: 'delayed', recompileDelay: 600 }}
       >

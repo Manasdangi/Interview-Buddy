@@ -6,7 +6,7 @@ import { Input } from '../components/ui/Input'
 import { CompanyMonogram } from '../components/company/CompanyMonogram'
 import { cn } from '../utils/cn'
 
-const categories: Array<CompanyCategory | 'ALL'> = ['ALL', 'BIG_TECH', 'INDIAN_PRODUCT', 'FINTECH', 'SAAS_ENTERPRISE', 'STARTUP']
+const categories: Array<CompanyCategory | 'ALL'> = ['ALL', 'AI', 'BIG_TECH', 'INDIAN_PRODUCT', 'FINTECH', 'SAAS_ENTERPRISE', 'STARTUP']
 
 export default function CompaniesPage() {
   const [query, setQuery] = useState('')

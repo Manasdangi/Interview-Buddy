@@ -64,7 +64,7 @@ export function VoiceInterviewBar({
     <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/5 p-4" role="region" aria-label="Voice interview">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className={cn('flex h-10 w-10 items-center justify-center rounded-full', listening ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-emerald-300')}>
+          <span className={cn('flex h-10 w-10 items-center justify-center rounded-full', listening ? 'bg-emerald-500 text-pure' : 'bg-slate-900 text-emerald-300')}>
             {listening ? <Mic className="h-5 w-5" /> : <Headphones className="h-5 w-5" />}
           </span>
           <div>

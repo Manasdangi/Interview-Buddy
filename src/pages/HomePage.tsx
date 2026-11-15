@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
-import { companies } from '../../shared/companyCatalog'
+import { companies, findCompany } from '../../shared/companyCatalog'
+import { CompanyMonogram } from '../components/company/CompanyMonogram'
+
+const popularCompanyIds = ['openai', 'anthropic', 'google', 'amazon', 'microsoft', 'flipkart', 'atlassian', 'phonepe']
 
 const cards = [
   {
@@ -29,7 +32,7 @@ export default function HomePage() {
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-indigo-300">Interview Buddy</p>
           <h1 className="mt-6 text-5xl font-semibold text-white sm:text-6xl">Practice frontend interviews with an AI interviewer.</h1>
           <p className="mt-5 max-w-2xl text-slate-400">
-            Pick a company and role — Amazon, Flipkart, PhonePe, Atlassian and more — and take a mock round modelled on how that company's
+            Pick a company and role — OpenAI, Amazon, Flipkart, Atlassian and 100+ more — and take a mock round modelled on how that company's
             frontend interviews are commonly reported to run. Timed, adaptive follow-ups, voice mode, code editor and a detailed report. Free.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -40,15 +43,33 @@ export default function HomePage() {
               <Button variant="secondary">General practice</Button>
             </Link>
           </div>
-          <p className="mt-6 text-sm text-slate-500">
-            Popular:{' '}
-            {companies.slice(0, 8).map((company, index) => (
-              <span key={company.id}>
-                {index ? ' · ' : ''}
-                <Link to={`/companies/${company.id}`} className="text-slate-300 hover:text-white">{company.name}</Link>
-              </span>
-            ))}
-          </p>
+          <div className="mt-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Popular this week</p>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {popularCompanyIds.map((id) => {
+                const company = findCompany(id)
+                if (!company) return null
+                return (
+                  <li key={id}>
+                    <Link
+                      to={`/companies/${id}`}
+                      className="flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900 py-1.5 pl-1.5 pr-4 text-sm text-slate-200 transition hover:border-indigo-400/60 hover:text-white"
+                    >
+                      <span className="scale-[0.72] -m-1.5">
+                        <CompanyMonogram companyId={id} name={company.name} />
+                      </span>
+                      {company.name}
+                    </Link>
+                  </li>
+                )
+              })}
+              <li>
+                <Link to="/companies" className="flex h-full items-center rounded-full px-3 py-1.5 text-sm font-medium text-indigo-300 hover:text-indigo-200">
+                  All {companies.length}+ companies →
+                </Link>
+              </li>
+            </ul>
+          </div>
         </div>
       </section>
 

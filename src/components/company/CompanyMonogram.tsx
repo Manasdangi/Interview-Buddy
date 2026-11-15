@@ -26,7 +26,7 @@ export function CompanyMonogram({ companyId, name, size = 'md' }: { companyId?: 
 
   if (domain && !failed) {
     return (
-      <span className={cn('grid shrink-0 place-items-center bg-white p-1.5 ring-1 ring-slate-700', box)}>
+      <span className={cn('grid shrink-0 place-items-center bg-pure p-1.5 ring-1 ring-slate-800', box)}>
         <img
           src={logoUrl(domain)}
           alt={`${name} logo`}
@@ -42,6 +42,9 @@ export function CompanyMonogram({ companyId, name, size = 'md' }: { companyId?: 
 
   const hash = [...name].reduce((total, char) => total + char.charCodeAt(0), 0)
   const letters = name
+    .replace(/\(.*?\)/g, '')
+    .replace(/[^a-z0-9\s]/gi, '')
+    .trim()
     .split(/\s+/)
     .slice(0, 2)
     .map((word) => word[0])

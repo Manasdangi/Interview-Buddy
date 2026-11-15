@@ -10,7 +10,7 @@ export type CompanyRoundType = 'ROUND_1' | 'ROUND_2' | 'SYSTEM_DESIGN'
 
 export type CompanyRoleLevel = 'FE1' | 'FE2'
 
-export type CompanyCategory = 'BIG_TECH' | 'INDIAN_PRODUCT' | 'FINTECH' | 'SAAS_ENTERPRISE' | 'STARTUP'
+export type CompanyCategory = 'AI' | 'BIG_TECH' | 'INDIAN_PRODUCT' | 'FINTECH' | 'SAAS_ENTERPRISE' | 'STARTUP'
 
 export type CompanyRoundBlueprint = {
   type: CompanyRoundType
@@ -68,6 +68,7 @@ export const roleDefinitions: Record<CompanyRoleLevel, RoleDefinition> = {
 }
 
 export const companyCategoryLabels: Record<CompanyCategory, string> = {
+  AI: 'AI companies',
   BIG_TECH: 'Big Tech',
   INDIAN_PRODUCT: 'Indian product',
   FINTECH: 'Fintech & banking',
@@ -1083,7 +1084,7 @@ const curatedCompanies: Company[] = [
 // company-specific build tasks and design prompts, so each company still feels like its own product.
 // ---------------------------------------------------------------------------------------------------------------
 
-type Archetype = 'DSA_HEAVY' | 'MACHINE_CODING' | 'STARTUP' | 'ENTERPRISE' | 'BANKING'
+type Archetype = 'AI_PRODUCT' | 'DSA_HEAVY' | 'MACHINE_CODING' | 'STARTUP' | 'ENTERPRISE' | 'BANKING'
 
 type CompanySpec = {
   id: string
@@ -1100,7 +1101,53 @@ type CompanySpec = {
 
 type ArchetypeRound = Omit<CompanyRoundBlueprint, 'type' | 'topics' | 'behavioralTopic'> & { baseTopics: (offset: number) => string[] }
 
+const aiProductCore = [
+  'Stream a response with fetch and ReadableStream, rendering tokens as they arrive',
+  'Server-sent events vs WebSockets for streaming model output',
+  'Cancel an in-flight streaming request with AbortController',
+  'Render streaming markdown and code blocks safely (no XSS)',
+  'Async iterators and generators for chunked data',
+  'Retry with exponential backoff and handling rate-limit (429) responses',
+]
+
 const archetypes: Record<Archetype, { bar: (name: string) => string; rounds: Record<CompanyRoundType, ArchetypeRound> }> = {
+  AI_PRODUCT: {
+    bar: (name) =>
+      `${name}'s frontend interviews are commonly reported to favour practical, real-world coding over puzzle-style questions: building product features end to end, strong JavaScript and React fundamentals, and product sense for AI experiences (streaming, latency, failure states). The bar is high and senior-leaning.`,
+    rounds: {
+      ROUND_1: {
+        title: 'Practical JavaScript coding',
+        durationMinutes: 60,
+        format: 'A realistic coding task in JavaScript or TypeScript (no trick puzzles), then fundamentals and async follow-ups.',
+        interviewerStyle: 'Pair-programming feel; cares about clean, working code, async correctness and how you test it.',
+        baseTopics: (offset) => [...pick(aiProductCore, 4, offset), ...pick(jsCore, 4, offset)],
+      },
+      ROUND_2: {
+        title: 'Build an AI product feature',
+        durationMinutes: 90,
+        format: 'Build a feature of an AI product in React from a short spec, extending it as requirements are added.',
+        interviewerStyle: 'Looks at product polish: loading and streaming states, errors, accessibility and responsiveness.',
+        baseTopics: (offset) => [
+          'Chat UI that streams an assistant reply with stop and regenerate',
+          'Conversation sidebar with rename, delete and search',
+          'Prompt input with file attachments and keyboard shortcuts',
+          ...pick(machineCodingCore, 3, offset),
+        ],
+      },
+      SYSTEM_DESIGN: {
+        title: 'Frontend system design for AI products',
+        durationMinutes: 60,
+        format: 'Design the frontend of an AI product used by millions, end to end.',
+        interviewerStyle: 'Probes streaming architecture, perceived latency, state for long conversations and graceful failure.',
+        baseTopics: (offset) => [
+          'Design a ChatGPT-style chat app with streaming and conversation history',
+          'Design a collaborative AI document editor with inline suggestions',
+          'Design an AI code-assistant panel inside a web IDE',
+          ...pick(systemDesignCore, 5, offset),
+        ],
+      },
+    },
+  },
   DSA_HEAVY: {
     bar: (name) =>
       `${name}'s frontend loop is commonly reported to be algorithm-heavy: data-structure problems solved in JavaScript, a frontend coding round and, for experienced hires, frontend system design. Clear reasoning about complexity matters.`,
@@ -1255,6 +1302,17 @@ const archetypes: Record<Archetype, { bar: (name: string) => string; rounds: Rec
 }
 
 const companySpecs: CompanySpec[] = [
+  // AI companies
+  { id: 'openai', name: 'OpenAI', category: 'AI', archetype: 'AI_PRODUCT', tagline: 'Practical coding and polished AI product UIs at huge scale.', build: ['Model picker with capability badges and keyboard navigation', 'Shared conversation view with copy and citations'], design: ['Design ChatGPT-style memory and settings across devices', 'Design an API playground with streaming output'] },
+  { id: 'anthropic', name: 'Anthropic', category: 'AI', archetype: 'AI_PRODUCT', tagline: 'Thoughtful, practical engineering for Claude products.', build: ['Artifact preview panel next to a chat thread', 'Project knowledge uploader with file list and limits'], design: ['Design a chat product with side-by-side artifacts', 'Design a usage and rate-limit aware console'], behavioral: 'Values: a time you raised a safety or quality concern and how you handled it' },
+  { id: 'google-deepmind', name: 'Google DeepMind', category: 'AI', archetype: 'DSA_HEAVY', tagline: 'Research-to-product tooling with Google-level rigour.', build: ['Experiment results table with metric charts', 'Prompt comparison view for two model outputs'], design: ['Design an internal model evaluation dashboard', 'Design a multimodal assistant web client'] },
+  { id: 'nvidia', name: 'NVIDIA', category: 'AI', archetype: 'ENTERPRISE', tagline: 'Developer platforms, dashboards and high-performance UIs.', build: ['GPU utilisation dashboard with live charts', 'Model catalogue with filters and deploy button'], design: ['Design a cloud GPU console', 'Design a developer portal for AI models and SDKs'] },
+  { id: 'perplexity', name: 'Perplexity', category: 'AI', archetype: 'AI_PRODUCT', tagline: 'Fast, design-led answer engine UIs.', build: ['Answer view with numbered inline citations and source cards', 'Follow-up question suggestions under an answer'], design: ['Design an answer engine with streaming answers and sources', 'Design a shareable "page" built from a conversation'] },
+  { id: 'databricks', name: 'Databricks', category: 'AI', archetype: 'DSA_HEAVY', tagline: 'Data and AI platform UIs: notebooks, tables and dashboards.', build: ['Virtualised results table for a large query', 'Notebook cell with run, output and error states'], design: ['Design a collaborative data notebook', 'Design an AI/BI dashboard builder'] },
+  { id: 'cursor', name: 'Cursor (Anysphere)', category: 'AI', archetype: 'AI_PRODUCT', tagline: 'AI-first code editor engineering with a very high bar.', build: ['Inline diff view to accept or reject an AI edit', 'Command palette with fuzzy search'], design: ['Design an AI agent panel that edits many files', 'Design low-latency inline code completions in an editor'] },
+  { id: 'mistral', name: 'Mistral AI', category: 'AI', archetype: 'AI_PRODUCT', tagline: 'Lean teams shipping chat and developer platforms.', build: ['API key management page with create, copy and revoke', 'Chat with model and temperature controls'], design: ['Design a developer console with usage billing', 'Design a multilingual chat assistant'] },
+  { id: 'elevenlabs', name: 'ElevenLabs', category: 'AI', archetype: 'AI_PRODUCT', tagline: 'Voice AI products with rich audio interfaces.', build: ['Audio player with waveform and scrubbing', 'Text-to-speech editor with voice picker and preview'], design: ['Design a dubbing studio for long videos', 'Design a real-time conversational voice agent UI'] },
+  { id: 'scale-ai', name: 'Scale AI', category: 'AI', archetype: 'MACHINE_CODING', tagline: 'Data labelling tools and complex annotation UIs.', build: ['Image annotation tool with bounding boxes', 'Task review queue with keyboard shortcuts'], design: ['Design a large-scale data annotation platform', 'Design an LLM evaluation and ranking tool'] },
   // Big Tech & global product
   { id: 'meta', name: 'Meta', category: 'BIG_TECH', archetype: 'DSA_HEAVY', tagline: 'Fast-paced coding rounds and product-scale frontend design.', build: ['News feed post composer with mentions and preview', 'Reactions picker with hover and keyboard support'], design: ['Design a social news feed with infinite scroll', 'Design a real-time comments system for live videos'], behavioral: 'Behavioural: a time you moved fast and handled conflict on a team' },
   { id: 'netflix', name: 'Netflix', category: 'BIG_TECH', archetype: 'DSA_HEAVY', tagline: 'Senior-leaning loops focused on UI performance and ownership.', build: ['Horizontally scrolling title rows with lazy-loaded artwork', 'Video player controls with keyboard shortcuts'], design: ['Design a streaming home page personalised per profile', 'Design a TV-friendly UI with remote-control navigation'], behavioral: 'Culture: a time you exercised judgement with freedom and responsibility' },
@@ -1400,4 +1458,7 @@ export const companyDomains: Record<string, string> = {
   physicswallah: 'pw.live', upgrad: 'upgrad.com', vedantu: 'vedantu.com', zoho: 'zoho.com', freshworks: 'freshworks.com',
   postman: 'postman.com', browserstack: 'browserstack.com', chargebee: 'chargebee.com', innovaccer: 'innovaccer.com',
   harness: 'harness.io', rippling: 'rippling.com', tekion: 'tekion.com',
+  openai: 'openai.com', anthropic: 'anthropic.com', 'google-deepmind': 'deepmind.google', nvidia: 'nvidia.com',
+  perplexity: 'perplexity.ai', databricks: 'databricks.com', cursor: 'cursor.com', mistral: 'mistral.ai',
+  elevenlabs: 'elevenlabs.io', 'scale-ai': 'scale.com',
 }
