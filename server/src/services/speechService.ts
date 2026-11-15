@@ -77,3 +77,34 @@ export async function synthesizeSpeech(text: string) {
   cache.set(text, wavBase64)
   return wavBase64
 }
+
+/** Diagnostics only: time to first audio chunk with Gemini's streaming endpoint. */
+export async function probeStreamingSpeech(text: string) {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new HttpError(503, 'No GEMINI_API_KEY.')
+  const started = Date.now()
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:streamGenerateContent?alt=sse`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: `Read this aloud in a natural Indian English accent:\n${text}` }] }],
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: { languageCode: 'en-IN', voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } },
+      },
+    }),
+  })
+  if (!response.ok || !response.body) return { status: response.status, error: (await response.text()).slice(0, 300) }
+  const reader = response.body.getReader()
+  let firstChunkMs: number | null = null
+  let chunks = 0
+  let bytes = 0
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    if (firstChunkMs === null) firstChunkMs = Date.now() - started
+    chunks += 1
+    bytes += value.length
+  }
+  return { status: response.status, firstChunkMs, totalMs: Date.now() - started, chunks, bytes }
+}

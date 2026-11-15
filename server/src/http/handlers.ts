@@ -10,6 +10,7 @@ import {
   transcribeSessionAudio,
   type SessionAccess,
 } from '../services/interviewSessionService.js'
+import { probeStreamingSpeech } from '../services/speechService.js'
 import { listSummariesForUser, saveCompletedSummary, saveQuitSummary } from '../services/interviewSummaryService.js'
 import { enforceRateLimit } from './rateLimit.js'
 
@@ -113,9 +114,13 @@ export async function streamMessage(req: ApiRequest, send: (event: MessageStream
 
 export const speech: ApiHandler = async (req) => {
   const access = await getAccess(req)
-  const { sessionId, text } = getBody(req)
+  const { sessionId, text, probe } = getBody(req)
   const id = typeof sessionId === 'string' ? sessionId : undefined
   enforceRateLimit(`speech:${id ?? req.ip ?? 'unknown'}`, 400, hourMs)
+  if (probe === 'stream' && typeof text === 'string') {
+    await getAuthorizedSession(id, access)
+    return { status: 200, body: await probeStreamingSpeech(text.slice(0, 300)) }
+  }
   const audioBase64 = await speakForSession(id, text, access)
   return { status: 200, body: { audioBase64, mimeType: 'audio/wav' } }
 }

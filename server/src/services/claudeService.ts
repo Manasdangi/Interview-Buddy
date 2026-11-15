@@ -28,7 +28,7 @@ type ClaudePayload = {
   max_tokens: number
   system: string
   messages: Array<{ role: 'user'; content: string }>
-  tools?: Array<{ name: string; description: string; input_schema: JsonSchema }>
+  tools?: Array<{ name: string; description: string; input_schema: JsonSchema; eager_input_streaming?: boolean }>
   tool_choice?: { type: 'auto' }
   stream?: boolean
 }
@@ -165,7 +165,12 @@ async function streamClaude(payload: ClaudePayload, timeoutMs: number, onToolJso
       response = await fetch(ANTHROPIC_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': ANTHROPIC_VERSION },
-        body: JSON.stringify({ ...payload, stream: true }),
+        // eager_input_streaming sends the tool input as it is generated instead of buffering each value.
+        body: JSON.stringify({
+          ...payload,
+          stream: true,
+          tools: payload.tools?.map((tool) => ({ ...tool, eager_input_streaming: true })),
+        }),
         signal: AbortSignal.timeout(timeoutMs),
       })
     } catch (error) {
