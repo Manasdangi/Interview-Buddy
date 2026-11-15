@@ -86,6 +86,66 @@ export const sendInterviewMessage = async (sessionId: string, message: string) =
   return response.data
 }
 
+type MessagePayload = { aiMessage: InterviewMessage | null; session: InterviewSession; summary?: InterviewSummary | null }
+
+/** The streaming endpoint is missing (e.g. an older deployment); callers fall back to the normal request. */
+export class StreamUnavailableError extends Error {}
+
+/**
+ * Sends an answer and streams the interviewer's reply text (`onDelta`) while Claude writes it, so live voice
+ * can start speaking before the whole reply is ready. Resolves with the same payload as sendInterviewMessage.
+ */
+export const sendInterviewMessageStream = async (sessionId: string, message: string, onDelta: (text: string) => void) => {
+  const token = getAuthToken()
+  const response = await fetch(`${baseURL}/interviews/${sessionId}/message-stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...sessionHeaders(sessionId),
+    },
+    body: JSON.stringify({ message }),
+  })
+  if (response.status === 404 || response.status === 405 || !response.body) throw new StreamUnavailableError('Streaming unavailable.')
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as { error?: unknown }
+    throw new Error(normalizeApiError(data.error) || 'Unable to send answer. Please retry.')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let pending = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (value) pending += decoder.decode(value, { stream: true })
+    let newline = pending.indexOf('\n')
+    while (newline !== -1) {
+      const line = pending.slice(0, newline).trim()
+      pending = pending.slice(newline + 1)
+      newline = pending.indexOf('\n')
+      if (!line) continue
+      const event = JSON.parse(line) as
+        | { type: 'delta'; text: string }
+        | ({ type: 'done' } & MessagePayload)
+        | { type: 'error'; error: string }
+      if (event.type === 'delta') onDelta(event.text)
+      else if (event.type === 'error') throw new Error(event.error)
+      else return { aiMessage: event.aiMessage, session: event.session, summary: event.summary }
+    }
+    if (done) throw new Error('The connection closed before the interviewer replied. Please retry.')
+  }
+}
+
+/** Natural Indian-English interviewer voice for one sentence; returns base64 WAV audio. */
+export const synthesizeSpeech = async (sessionId: string, text: string) => {
+  const response = await client.post<{ audioBase64: string; mimeType: string }>(
+    '/interviews/speech',
+    { sessionId, text },
+    { headers: sessionHeaders(sessionId) },
+  )
+  return response.data
+}
+
 export const completeInterview = async (sessionId: string) => {
   const response = await client.post<{ scorecard: InterviewScorecard; session: InterviewSession; summary?: InterviewSummary | null }>(
     `/interviews/${sessionId}/complete`,

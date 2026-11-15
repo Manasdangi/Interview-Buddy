@@ -6,6 +6,7 @@ import {
   getAuthorizedSession,
   startInterviewSession,
   toPublicSession,
+  speakForSession,
   transcribeSessionAudio,
   type SessionAccess,
 } from '../services/interviewSessionService.js'
@@ -87,6 +88,36 @@ export const postMessage: ApiHandler = async (req) => {
   const { aiMessage, session } = await addInterviewMessage(req.params.sessionId, getBody(req).message, access)
   const summary = await saveCompletedSummary(session, access.uid)
   return { status: 200, body: { aiMessage, session: toPublicSession(session), summary } }
+}
+
+export type MessageStreamEvent =
+  | { type: 'delta'; text: string }
+  | { type: 'done'; aiMessage: unknown; session: unknown; summary: unknown }
+  | { type: 'error'; status: number; error: string }
+
+/** Like postMessage, but streams the interviewer's reply text as newline-delimited JSON events. */
+export async function streamMessage(req: ApiRequest, send: (event: MessageStreamEvent) => void) {
+  try {
+    const access = await getAccess(req)
+    enforceRateLimit(`message:${req.params.sessionId}`, 30, hourMs)
+    const { aiMessage, session } = await addInterviewMessage(req.params.sessionId, getBody(req).message, access, (text) =>
+      send({ type: 'delta', text }),
+    )
+    const summary = await saveCompletedSummary(session, access.uid)
+    send({ type: 'done', aiMessage, session: toPublicSession(session), summary })
+  } catch (error) {
+    const result = toErrorResult(error)
+    send({ type: 'error', status: result.status, error: String((result.body as { error?: unknown }).error ?? 'Something went wrong.') })
+  }
+}
+
+export const speech: ApiHandler = async (req) => {
+  const access = await getAccess(req)
+  const { sessionId, text } = getBody(req)
+  const id = typeof sessionId === 'string' ? sessionId : undefined
+  enforceRateLimit(`speech:${id ?? req.ip ?? 'unknown'}`, 400, hourMs)
+  const audioBase64 = await speakForSession(id, text, access)
+  return { status: 200, body: { audioBase64, mimeType: 'audio/wav' } }
 }
 
 export const completeInterview: ApiHandler = async (req) => {

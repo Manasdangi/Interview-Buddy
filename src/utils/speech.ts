@@ -119,3 +119,23 @@ export function speak(text: string, { voice, rate = 1, onEnd }: SpeakOptions = {
     window.speechSynthesis.cancel()
   }
 }
+
+/** Splits off complete sentences from streamed text; very short ones are merged with the next. */
+export function takeSentences(buffer: string, minLength = 24) {
+  const sentences: string[] = []
+  let rest = buffer
+  const boundary = /[.!?](?=\s)|\n/g
+  let start = 0
+  let match: RegExpExecArray | null
+  while ((match = boundary.exec(rest))) {
+    const end = match.index + 1
+    const sentence = rest.slice(start, end).trim()
+    if (sentence.length >= minLength) {
+      sentences.push(sentence)
+      start = end
+    }
+  }
+  rest = rest.slice(start)
+  return { sentences, rest }
+}
+

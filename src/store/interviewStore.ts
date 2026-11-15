@@ -9,6 +9,8 @@ import {
   completeInterview as completeInterviewApi,
   fetchInterviewSession,
   sendInterviewMessage,
+  sendInterviewMessageStream,
+  StreamUnavailableError,
   startInterview,
   type CompanyStartOptions,
 } from '../services/interviewApi'
@@ -29,7 +31,10 @@ type InterviewState = {
     questionSet?: QuestionSet,
     company?: CompanyStartOptions,
   ) => Promise<InterviewSession | null>
-  sendAnswer: (message: string) => Promise<boolean>
+  /** Interviewer reply text streamed so far for the answer being sent. */
+  streamingReply: string | null
+  /** Sends an answer; `onDelta` receives the interviewer's reply as it streams (used by live voice). */
+  sendAnswer: (message: string, onDelta?: (text: string) => void) => Promise<boolean>
   completeInterview: () => Promise<void>
   setCurrentSession: (session: InterviewSession | null) => void
   resetInterview: () => void
@@ -50,6 +55,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
   completing: false,
   loadingSession: false,
   error: null,
+  streamingReply: null,
 
   startInterview: async (interviewType, difficulty, questionSet, company) => {
     set({ starting: true, error: null })
@@ -66,16 +72,25 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
     }
   },
 
-  sendAnswer: async (message) => {
+  sendAnswer: async (message, onDelta) => {
     const session = get().currentSession
     if (!session) {
       set({ error: 'No active session found.' })
       return false
     }
 
-    set({ sending: true, error: null })
+    set({ sending: true, error: null, streamingReply: null })
     try {
-      const payload = await sendInterviewMessage(session.id, message)
+      let streamed = false
+      const payload = await sendInterviewMessageStream(session.id, message, (text) => {
+        streamed = true
+        set((state) => ({ streamingReply: (state.streamingReply ?? '') + text }))
+        onDelta?.(text)
+      }).catch((error: unknown) => {
+        // Older deployments have no streaming endpoint: send normally instead.
+        if (error instanceof StreamUnavailableError && !streamed) return sendInterviewMessage(session.id, message)
+        throw error
+      })
       saveActiveBrowserSession(payload.session)
       set((state) => ({
         currentSession: payload.session,
@@ -86,7 +101,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
       set({ error: formatErrorMessage(error, 'Unable to send answer. Please retry.') })
       return false
     } finally {
-      set({ sending: false })
+      set({ sending: false, streamingReply: null })
     }
   },
 

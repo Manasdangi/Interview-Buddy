@@ -1,4 +1,5 @@
 import { HttpError } from '../utils/httpError.js'
+import { createJsonStringFieldStreamer } from './jsonFieldStreamer.js'
 
 // Plain fetch instead of the SDK keeps the serverless bundle small and avoids ESM/CJS interop surprises.
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages'
@@ -29,6 +30,15 @@ type ClaudePayload = {
   messages: Array<{ role: 'user'; content: string }>
   tools?: Array<{ name: string; description: string; input_schema: JsonSchema }>
   tool_choice?: { type: 'auto' }
+  stream?: boolean
+}
+
+type StreamEvent = {
+  type?: string
+  index?: number
+  content_block?: { type?: string; text?: string }
+  delta?: { type?: string; text?: string; partial_json?: string; stop_reason?: string }
+  error?: { message?: string }
 }
 
 /** Standard JSON Schema (lowercase types) describing the object Claude must return. */
@@ -142,14 +152,113 @@ export async function generateText(systemPrompt: string, userPrompt: string) {
   return text
 }
 
+/**
+ * Streams a Claude response (server-sent events) and assembles it into the same shape as a normal response.
+ * `onToolJson` receives the tool input JSON as it arrives. Retries once only if nothing has streamed yet.
+ */
+async function streamClaude(payload: ClaudePayload, timeoutMs: number, onToolJson: (chunk: string) => void): Promise<ClaudeResponse> {
+  const apiKey = getApiKey()
+
+  for (let attempt = 0; ; attempt += 1) {
+    let response: Response
+    try {
+      response = await fetch(ANTHROPIC_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': ANTHROPIC_VERSION },
+        body: JSON.stringify({ ...payload, stream: true }),
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+    } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') throw new HttpError(504, 'Claude took too long to respond. Please try again.')
+      if (attempt < MAX_RETRIES) {
+        await sleep(500 * (attempt + 1))
+        continue
+      }
+      throw new HttpError(502, 'Unable to reach Claude. Please try again.')
+    }
+
+    if (!response.ok || !response.body) {
+      if (RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
+        await sleep(500 * (attempt + 1))
+        continue
+      }
+      throw await readClaudeError(response, 'Claude could not generate a response.')
+    }
+
+    const blocks: Array<{ type: string; text: string; json: string }> = []
+    let stopReason: string | undefined
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let pending = ''
+
+    const handle = (event: StreamEvent) => {
+      if (event.type === 'content_block_start' && typeof event.index === 'number') {
+        blocks[event.index] = { type: event.content_block?.type ?? 'text', text: event.content_block?.text ?? '', json: '' }
+      } else if (event.type === 'content_block_delta' && typeof event.index === 'number') {
+        const block = blocks[event.index] ?? (blocks[event.index] = { type: 'text', text: '', json: '' })
+        if (event.delta?.type === 'input_json_delta' && event.delta.partial_json) {
+          block.json += event.delta.partial_json
+          onToolJson(event.delta.partial_json)
+        } else if (event.delta?.type === 'text_delta' && event.delta.text) {
+          block.text += event.delta.text
+        }
+      } else if (event.type === 'message_delta') {
+        stopReason = event.delta?.stop_reason ?? stopReason
+      } else if (event.type === 'error') {
+        throw new HttpError(event.error?.message?.toLowerCase().includes('overload') ? 503 : 502, event.error?.message || 'Claude stopped unexpectedly. Please retry.')
+      }
+    }
+
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      pending += decoder.decode(value, { stream: true })
+      let boundary = pending.indexOf('\n\n')
+      while (boundary !== -1) {
+        const rawEvent = pending.slice(0, boundary)
+        pending = pending.slice(boundary + 2)
+        const data = rawEvent
+          .split('\n')
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trim())
+          .join('')
+        if (data) handle(JSON.parse(data) as StreamEvent)
+        boundary = pending.indexOf('\n\n')
+      }
+    }
+
+    return {
+      stop_reason: stopReason,
+      content: blocks.filter(Boolean).map((block) => {
+        if (block.type !== 'tool_use') return { type: block.type, text: block.text }
+        try {
+          return { type: 'tool_use', input: block.json ? JSON.parse(block.json) : {} }
+        } catch {
+          return { type: 'text', text: block.json }
+        }
+      }),
+    }
+  }
+}
+
+type GenerateJsonOptions = {
+  long?: boolean
+  /** Streams the reply and calls this with each new piece of the "message" field as Claude writes it. */
+  onMessageDelta?: (text: string) => void
+}
+
 /** Returns raw JSON text shaped by `schema`; callers still validate the shape. */
-export async function generateJson(systemPrompt: string, userPrompt: string, schema: JsonSchema, options?: { long?: boolean }) {
+export async function generateJson(systemPrompt: string, userPrompt: string, schema: JsonSchema, options?: GenerateJsonOptions) {
   const long = options?.long ?? false
-  const data = await callClaude(
-    buildPayload(systemPrompt, userPrompt, long ? REPORT_MAX_TOKENS : TEXT_MAX_TOKENS, schema),
-    'Claude could not generate a response.',
-    long ? REPORT_TIMEOUT_MS : TEXT_TIMEOUT_MS,
-  )
+  const payload = buildPayload(systemPrompt, userPrompt, long ? REPORT_MAX_TOKENS : TEXT_MAX_TOKENS, schema)
+  const timeoutMs = long ? REPORT_TIMEOUT_MS : TEXT_TIMEOUT_MS
+  const onMessageDelta = options?.onMessageDelta
+  const data = onMessageDelta
+    ? await (() => {
+        const streamer = createJsonStringFieldStreamer('message', onMessageDelta)
+        return streamClaude(payload, timeoutMs, (chunk) => streamer.push(chunk))
+      })()
+    : await callClaude(payload, 'Claude could not generate a response.', timeoutMs)
 
   const toolUse = (data.content ?? []).find((block) => block.type === 'tool_use')
   if (data.stop_reason === 'max_tokens') {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { transcribeVoice } from '../services/interviewApi'
-import { getEnglishVoices, isSpeechSynthesisSupported, pickDefaultVoice, speak, voiceStorageKey } from '../utils/speech'
+import { getEnglishVoices, isSpeechSynthesisSupported, pickDefaultVoice, voiceStorageKey } from '../utils/speech'
+import { speakNatural } from '../utils/liveSpeaker'
 
 export type VoicePhase = 'off' | 'speaking' | 'listening' | 'transcribing' | 'sending' | 'waiting' | 'idle'
 
@@ -276,8 +277,8 @@ export function useVoiceInterview({ enabled, sessionId, pendingQuestion, onSubmi
     if (!activeQuestion) return undefined
 
     const generation = ++generationRef.current
-    cancelSpeechRef.current = speak(activeQuestion.content, {
-      voice: voiceRef.current,
+    cancelSpeechRef.current = speakNatural(sessionIdRef.current, activeQuestion.content, {
+      getFallbackVoice: () => voiceRef.current,
       onEnd: () => {
         cancelSpeechRef.current = null
         if (generation === generationRef.current) void listen()

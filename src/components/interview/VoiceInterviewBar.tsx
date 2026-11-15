@@ -15,6 +15,8 @@ type VoiceInterviewBarProps = {
   onAnswerNow: () => void
   onRetrySend: () => void
   onStop: () => void
+  /** ChatGPT-style live mode: the candidate can talk over the interviewer. */
+  liveMode?: boolean
 }
 
 const statusText: Record<VoicePhase, string> = {
@@ -57,6 +59,7 @@ export function VoiceInterviewBar({
   onAnswerNow,
   onRetrySend,
   onStop,
+  liveMode = false,
 }: VoiceInterviewBarProps) {
   const listening = phase === 'listening'
 
@@ -69,7 +72,12 @@ export function VoiceInterviewBar({
           </span>
           <div>
             <p className="text-sm font-semibold text-white">Voice interview</p>
-            <p className="text-sm text-slate-300" aria-live="polite">{statusText[phase]}</p>
+            <p className="text-sm text-slate-300" aria-live="polite">{liveMode && phase === 'speaking'
+                ? 'Interviewer is speaking. Start talking any time to interrupt.'
+                : liveMode && phase === 'sending'
+                  ? 'Interviewer is thinking...'
+                  : statusText[phase]}
+            </p>
           </div>
         </div>
         <LevelMeter level={level} active={listening} />

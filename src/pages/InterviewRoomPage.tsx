@@ -8,6 +8,8 @@ import { InterviewTimer } from '../components/interview/InterviewTimer'
 import { ProblemStatement } from '../components/interview/ProblemStatement'
 import { VoiceInterviewBar } from '../components/interview/VoiceInterviewBar'
 import { useVoiceInterview } from '../hooks/useVoiceInterview'
+import { isLiveVoiceSupported, useLiveVoice } from '../hooks/useLiveVoice'
+import { LiveSpeaker, unlockAudio } from '../utils/liveSpeaker'
 import { starterCode } from '../utils/starterCode'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -21,10 +23,12 @@ const maxMessageLength = 12_000
 export default function InterviewRoomPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
-  const { currentSession, loadingSession, sending, completing, error, loadSession, sendAnswer, completeInterview, resetInterview } = useInterviewStore()
+  const { currentSession, loadingSession, sending, completing, error, streamingReply, loadSession, sendAnswer, completeInterview, resetInterview } = useInterviewStore()
   const [pendingVoiceTranscript, setPendingVoiceTranscript] = useState<string | null>(null)
   const [voiceInterview, setVoiceInterview] = useState(false)
   const [answerModeChosen, setAnswerModeChosen] = useState(false)
+  const [liveUnavailable, setLiveUnavailable] = useState<string | null>(null)
+  const typedSpeakerRef = useRef<LiveSpeaker | null>(null)
   const [showEditor, setShowEditor] = useState<boolean | null>(null)
   const [attachCode, setAttachCode] = useState(true)
   const [attachError, setAttachError] = useState<string | null>(null)
@@ -53,7 +57,7 @@ export default function InterviewRoomPage() {
 
   // Typed and spoken answers both carry the editor code once the candidate has edited it.
   const handleSend = useCallback(
-    async (message: string) => {
+    async (message: string, onDelta?: (text: string) => void) => {
       const shouldAttach = editorOpen && attachCode && codeEdited
       const fullMessage = shouldAttach ? `${message}\n\n\`\`\`tsx\n${editorCodeRef.current.trim()}\n\`\`\`` : message
 
@@ -63,18 +67,34 @@ export default function InterviewRoomPage() {
       }
 
       setAttachError(null)
-      return sendAnswer(fullMessage)
+      setPendingVoiceTranscript(message)
+      const ok = await sendAnswer(fullMessage, onDelta)
+      setPendingVoiceTranscript(null)
+      return ok
     },
     [attachCode, codeEdited, editorOpen, sendAnswer],
   )
 
+  // Chrome/Edge get ChatGPT-style live voice; other browsers use record-and-transcribe voice mode.
+  const useLive = voiceInterview && isLiveVoiceSupported() && !liveUnavailable
+  const live = useLiveVoice({
+    enabled: useLive && hasActiveInterview,
+    sessionId: sessionId ?? '',
+    pendingQuestion,
+    submit: handleSend,
+    onTranscript: setPendingVoiceTranscript,
+    onUnavailable: setLiveUnavailable,
+  })
+
   const voice = useVoiceInterview({
-    enabled: voiceInterview && hasActiveInterview,
+    enabled: voiceInterview && !useLive && hasActiveInterview,
     sessionId: sessionId ?? '',
     pendingQuestion,
     onSubmit: handleSend,
     onTranscript: setPendingVoiceTranscript,
   })
+
+  const activeVoice = useLive ? live : voice
 
   const showAnswerModeChoice = hasActiveInterview && voice.supported && !voiceInterview && !answerModeChosen && !hasAnswered
 
@@ -86,17 +106,16 @@ export default function InterviewRoomPage() {
   }
 
   const stopSpeech = () => {
+    typedSpeakerRef.current?.stop()
     window.speechSynthesis?.cancel()
   }
 
   // The interviewer always reads questions aloud (there is no mute), as in a real interview.
   const speakQuestion = (message: { id: string; content: string }) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return
+    if (!sessionId) return
     lastSpokenMessageIdRef.current = message.id
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(message.content)
-    utterance.rate = 0.95
-    window.speechSynthesis.speak(utterance)
+    typedSpeakerRef.current ??= new LiveSpeaker({ sessionId })
+    typedSpeakerRef.current.speakAll(message.content)
   }
   const onNewQuestion = useEffectEvent(speakQuestion)
 
@@ -335,6 +354,7 @@ export default function InterviewRoomPage() {
                 className="gap-2"
                 onClick={() => {
                   stopSpeech()
+                  unlockAudio()
                   setAnswerModeChosen(true)
                   setVoiceInterview(true)
                 }}
@@ -347,6 +367,7 @@ export default function InterviewRoomPage() {
                 className="gap-2"
                 onClick={() => {
                   setAnswerModeChosen(true)
+                  unlockAudio()
                   // Some mobile browsers block speech until a tap, so read the current question again now.
                   if (pendingQuestion) speakQuestion(pendingQuestion)
                 }}
@@ -375,6 +396,7 @@ export default function InterviewRoomPage() {
                 title={voice.supported ? 'The interviewer speaks and listens hands-free' : 'Voice recording is not supported in this browser'}
                 onClick={() => {
                   stopSpeech()
+                  unlockAudio()
                   setVoiceInterview((current) => !current)
                 }}
               >
@@ -395,7 +417,7 @@ export default function InterviewRoomPage() {
           </div>
 
           <div className="space-y-4">
-            <ChatPanel messages={currentSession.messages} pendingVoiceTranscript={pendingVoiceTranscript} />
+            <ChatPanel messages={currentSession.messages} pendingVoiceTranscript={pendingVoiceTranscript} streamingReply={streamingReply} />
           </div>
         </Card>
 
@@ -425,17 +447,18 @@ export default function InterviewRoomPage() {
 
         {voiceInterview && hasActiveInterview ? (
           <VoiceInterviewBar
-            phase={voice.phase}
-            level={voice.level}
-            error={voice.error}
-            voices={voice.voices}
-            voiceName={voice.voiceName}
-            canRetrySend={voice.canRetrySend}
+            phase={activeVoice.phase}
+            level={activeVoice.level}
+            error={activeVoice.error ?? (useLive ? null : liveUnavailable)}
+            voices={useLive ? [] : voice.voices}
+            voiceName={useLive ? null : voice.voiceName}
+            canRetrySend={activeVoice.canRetrySend}
             onVoiceChange={voice.setVoiceName}
-            onFinishAnswer={voice.finishAnswer}
-            onAnswerNow={voice.answerNow}
-            onRetrySend={voice.retrySend}
+            onFinishAnswer={activeVoice.finishAnswer}
+            onAnswerNow={activeVoice.answerNow}
+            onRetrySend={activeVoice.retrySend}
             onStop={() => setVoiceInterview(false)}
+            liveMode={useLive}
           />
         ) : null}
 

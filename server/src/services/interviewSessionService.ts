@@ -15,6 +15,7 @@ import type {
 import { HttpError } from '../utils/httpError.js'
 import { generateJson, generateText } from './claudeService.js'
 import { transcribeAudio } from './transcriptionService.js'
+import { maxSpeechTextLength, synthesizeSpeech } from './speechService.js'
 import { buildScorecardPrompt, createInterviewPrompt, maxFollowUpsPerTopic } from './interviewPromptService.js'
 import { interviewTurnSchema, parseInterviewTurn, parseScorecard, scorecardSchema, type ParsedInterviewTurn } from './aiResponseParsing.js'
 import { createId } from '../utils/id.js'
@@ -384,7 +385,13 @@ export async function startInterviewSession(
   return { session, accessKey }
 }
 
-export async function addInterviewMessage(sessionId: string | undefined, message: unknown, access: SessionAccess) {
+export async function addInterviewMessage(
+  sessionId: string | undefined,
+  message: unknown,
+  access: SessionAccess,
+  /** Receives the interviewer's reply text as Claude writes it, for live voice. */
+  onReplyDelta?: (text: string) => void,
+) {
   const session = await getAuthorizedSession(sessionId, access)
 
   if (session.status === 'COMPLETED') {
@@ -410,7 +417,9 @@ export async function addInterviewMessage(sessionId: string | undefined, message
 
     const prompt = createInterviewPrompt(current, normalizeQuestionSet(current.questionSet), getSessionDailyVariant(current), 'FOLLOW_UP')
     const turn = parseInterviewTurn(
-      await generateJson(prompt, 'Assess the latest candidate answer and continue the interview.', interviewTurnSchema),
+      await generateJson(prompt, 'Assess the latest candidate answer and continue the interview.', interviewTurnSchema, {
+        onMessageDelta: onReplyDelta,
+      }),
     )
     updateStateAfterAnswer(current, turn.answerQuality)
     applyMoveToState(current, turn)
@@ -433,6 +442,14 @@ export async function completeInterviewSession(sessionId: string | undefined, ac
   }
 
   return session
+}
+
+export async function speakForSession(sessionId: string | undefined, text: unknown, access: SessionAccess) {
+  const spoken = typeof text === 'string' ? text.trim() : ''
+  if (!spoken) throw new HttpError(400, 'Text is required.')
+  if (spoken.length > maxSpeechTextLength) throw new HttpError(400, `Text is limited to ${maxSpeechTextLength} characters.`)
+  await getAuthorizedSession(sessionId, access)
+  return synthesizeSpeech(spoken)
 }
 
 export async function transcribeSessionAudio(
