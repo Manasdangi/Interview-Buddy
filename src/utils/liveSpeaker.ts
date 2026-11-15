@@ -80,6 +80,8 @@ function startAudioStream(sessionId: string, item: QueueItem) {
           item.notify?.()
         }
       }
+      // An empty stream means the server failed after starting (e.g. quota): use the browser voice instead.
+      if (!item.samples.length) throw new Error('Natural voice returned no audio.')
       naturalFailures = 0
       finish(false)
     } catch {
