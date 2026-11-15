@@ -33,9 +33,14 @@ export function unlockAudio() {
   if (isSpeechSynthesisSupported()) window.speechSynthesis.resume()
 }
 
-/** After a couple of failures, stop asking the server for the natural voice for the rest of the visit. */
-let naturalFailures = 0
-const maxNaturalFailures = 2
+/**
+ * One interviewer, one voice: once the natural voice fails (after a retry), the rest of the visit uses the browser
+ * voice, so sentences never switch between a natural and a robotic voice.
+ */
+let naturalDisabled = false
+/** Fetch audio for the current sentence and the next one only, to stay under the TTS rate limit. */
+const prefetchAhead = 2
+const retryDelayMs = 900
 
 type SpeakerOptions = {
   sessionId: string
@@ -54,47 +59,60 @@ type QueueItem = {
   failed: boolean
   abort: AbortController
   notify: (() => void) | null
+  started: boolean
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
 function startAudioStream(sessionId: string, item: QueueItem) {
+  item.started = true
   const finish = (failed: boolean) => {
     item.done = true
     item.failed = failed
     item.notify?.()
   }
-  if (naturalFailures >= maxNaturalFailures) return finish(true)
+  if (naturalDisabled) return finish(true)
 
   void (async () => {
-    try {
-      const response = await openSpeechStream(sessionId, item.text, item.abort.signal)
-      if (!response.ok || !response.body) throw new Error('Natural voice unavailable.')
-      const reader = response.body.getReader()
-      let leftover: Uint8Array | null = null
-      for (;;) {
-        const { value, done } = await reader.read()
-        if (done) break
-        // 16-bit little-endian samples can be split across network chunks.
-        const bytes: Uint8Array = leftover ? new Uint8Array([...leftover, ...value]) : value
-        const usable = bytes.length - (bytes.length % 2)
-        leftover = usable < bytes.length ? bytes.slice(usable) : null
-        const view = new DataView(bytes.buffer, bytes.byteOffset, usable)
-        const floats = new Float32Array(usable / 2)
-        for (let index = 0; index < floats.length; index += 1) floats[index] = view.getInt16(index * 2, true) / 32768
-        if (floats.length) {
-          item.samples.push(floats)
-          item.notify?.()
-        }
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await streamOnce()
+        return finish(false)
+      } catch {
+        if (item.abort.signal.aborted) return
+        if (item.samples.length) return finish(false)
+        if (attempt === 0) await sleep(retryDelayMs)
       }
-      // An empty stream means the server failed after starting (e.g. quota): use the browser voice instead.
-      if (!item.samples.length) throw new Error('Natural voice returned no audio.')
-      naturalFailures = 0
-      finish(false)
-    } catch {
-      if (item.abort.signal.aborted) return
-      naturalFailures += 1
-      finish(item.samples.length === 0)
     }
+    naturalDisabled = true
+    finish(true)
   })()
+
+  async function streamOnce() {
+    const response = await openSpeechStream(sessionId, item.text, item.abort.signal)
+    if (!response.ok || !response.body) throw new Error('Natural voice unavailable.')
+    const reader = response.body.getReader()
+    let leftover: Uint8Array | null = null
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      // 16-bit little-endian samples can be split across network chunks.
+      const bytes: Uint8Array = leftover ? new Uint8Array([...leftover, ...value]) : value
+      const usable = bytes.length - (bytes.length % 2)
+      leftover = usable < bytes.length ? bytes.slice(usable) : null
+      const view = new DataView(bytes.buffer, bytes.byteOffset, usable)
+      const floats = new Float32Array(usable / 2)
+      for (let index = 0; index < floats.length; index += 1) floats[index] = view.getInt16(index * 2, true) / 32768
+      if (floats.length) {
+        item.samples.push(floats)
+        item.notify?.()
+      }
+    }
+    // An empty stream means the server failed after starting (e.g. quota).
+    if (!item.samples.length) throw new Error('Natural voice returned no audio.')
+  }
 }
 
 /**
@@ -161,10 +179,16 @@ export class LiveSpeaker {
     const text = toSpeakableText(raw)
     if (!text) return
     this.spokenText += ` ${text}`
-    const item: QueueItem = { text, samples: [], done: false, failed: false, abort: new AbortController(), notify: null }
-    startAudioStream(this.options.sessionId, item)
+    const item: QueueItem = { text, samples: [], done: false, failed: false, abort: new AbortController(), notify: null, started: false }
     this.queue.push(item)
+    this.prefetch()
     this.pump()
+  }
+
+  private prefetch() {
+    this.queue.slice(0, prefetchAhead).forEach((item) => {
+      if (!item.started) startAudioStream(this.options.sessionId, item)
+    })
   }
 
   private checkIdle() {
@@ -185,6 +209,7 @@ export class LiveSpeaker {
       this.stopCurrent = null
       this.queue.shift()
       this.playing = false
+      this.prefetch()
       this.pump()
     }
 
@@ -192,7 +217,8 @@ export class LiveSpeaker {
     const begin = () => {
       if (generation !== this.generation) return
       item.notify = null
-      if (item.failed || !context || context.state !== 'running') {
+      // naturalDisabled: keep the whole conversation in one voice once the natural voice has failed.
+      if (item.failed || naturalDisabled || !context || context.state !== 'running') {
         this.speakWithBrowser(item.text, next)
         return
       }
