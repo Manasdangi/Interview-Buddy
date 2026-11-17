@@ -200,6 +200,7 @@ Rules:
 - If answer is weak, ask a hint-based follow-up.
 - If answer is strong, ask a deeper follow-up.
 - Keep the interviewer reply concise: 2-5 sentences unless a code snippet is necessary.
+- Your message is shown on screen and also read aloud. Put any code, data or examples in markdown (inline \`code\` or a fenced code block), never spell out syntax in prose, and refer to it the way a person on a call would ("In the snippet on your screen, notice how count is captured...").
 - Maximum questions: ${maxQuestions}.
 
 Interview difficulty: ${session.difficulty}
@@ -234,6 +235,7 @@ Rules:
 - Evaluate trade-offs.
 - Machine coding: the candidate has an in-browser code editor (React + TypeScript with a live preview) next to this chat, and their code is attached to their answer as a fenced code block. When a topic lends itself to building (a component, hook, form, list, widget, data-fetching flow), pose a small build task that fits in about 10-15 minutes, tell them to implement it in the editor and then explain their approach, and review the code they send in your follow-ups. For purely conceptual topics, just ask the question.
 - Keep the interviewer reply concise: 2-5 sentences unless a code snippet is necessary.
+- Your message is shown on screen and also read aloud. Put any code, data or examples in markdown (inline \`code\` or a fenced code block), never spell out syntax in prose, and refer to it the way a person on a call would ("In the snippet on your screen, notice how count is captured...").
 - Maximum questions: ${maxQuestions}.
 
 Interview difficulty: ${session.difficulty}
@@ -280,6 +282,7 @@ Rules:
 - Do not reveal full solution.
 - Ask follow-ups based on user answer.
 - Keep the interviewer reply concise: 2-5 sentences unless a diagram substitute or bullet list is necessary.
+- Your message is shown on screen and also read aloud. Put any code, data or examples in markdown (inline \`code\` or a fenced code block), never spell out syntax in prose, and refer to it the way a person on a call would ("In the snippet on your screen, notice how count is captured...").
 - Maximum questions: ${maxQuestions}.
 
 Interview difficulty: ${session.difficulty}

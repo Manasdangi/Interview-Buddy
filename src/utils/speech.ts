@@ -30,11 +30,85 @@ export function pickDefaultVoice(voices: SpeechSynthesisVoice[], savedName?: str
 }
 
 /** Turns an interviewer message into something pleasant to hear: no markdown symbols, code replaced by a spoken note. */
+/** Stands in for a fenced code block while text is split into sentences (code lines must not be spoken). */
+export const codeBlockMarker = '\u27E6code\u27E7'
+
+/** Replaces complete fenced code blocks with a marker that has no newlines. */
+export function collapseCodeBlocks(text: string) {
+  return text.replace(/```[\s\S]*?```/g, ` ${codeBlockMarker} `)
+}
+
+const spokenOperators: Record<string, string> = {
+  '===': 'triple equals',
+  '==': 'double equals',
+  '!==': 'strict not-equals',
+  '!=': 'not-equals',
+  '=>': 'arrow function',
+  '&&': 'and',
+  '||': 'or',
+  '??': 'nullish coalescing',
+  '?.': 'optional chaining',
+  '...': 'spread',
+}
+
+/** Turns an identifier into words: "mergeIntervals" -> "merge intervals", "Promise.allSettled" -> "Promise all settled". */
+function identifierToWords(name: string) {
+  return name
+    .split('.')
+    .map((part) => part.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' '))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * How an interviewer would say inline code out loud: names are read as words, simple field lists as words,
+ * and anything literal-heavy (numbers, nested brackets, strings, operators) is pointed to on screen instead.
+ */
+export function speakInlineCode(code: string): string | null {
+  const trimmed = code.trim()
+  const call = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)(?:\(.*\))?$/.exec(trimmed)
+  if (call && trimmed.length <= 40) return identifierToWords(call[1])
+
+  // e.g. [start, end] or { value, next }
+  if (/^[[{(]\s*[A-Za-z_$][\w$]*(\s*,\s*[A-Za-z_$][\w$]*)*\s*[\]})]$/.test(trimmed)) {
+    const words = trimmed.match(/[A-Za-z_$][\w$]*/g)?.map(identifierToWords) ?? []
+    return words.length > 1 ? `${words.slice(0, -1).join(', ')} and ${words.at(-1)}` : (words[0] ?? null)
+  }
+
+  if (/^[A-Za-z]+$/.test(trimmed)) return trimmed
+  return spokenOperators[trimmed] ?? null
+}
+
+/**
+ * What the interviewer says out loud for a message: code is referred to like a person on a call would
+ * ("take a look at the code on your screen") instead of being read symbol by symbol, and markdown is dropped.
+ */
 export function toSpeakableText(text: string) {
-  return text
-    .replace(/```[\s\S]*?```/g, ' (the code is on your screen) ')
-    .replace(/`([^`]+)`/g, '$1')
+  const collapsed = collapseCodeBlocks(text)
+  let spoken = ''
+  let rest = collapsed
+  let markerIndex = rest.indexOf(codeBlockMarker)
+  while (markerIndex !== -1) {
+    const before = rest.slice(0, markerIndex)
+    const lead = `${spoken}${before}`.trim()
+    // If the sentence already introduces the code ("...in this snippet:"), a short pointer is enough.
+    const introduced = /(snippet|code|below|following|this|here)\W*$/i.test(lead)
+    spoken += `${before} ${introduced ? 'Take a moment to read it on your screen.' : 'Take a look at the code on your screen.'} `
+    rest = rest.slice(markerIndex + codeBlockMarker.length)
+    markerIndex = rest.indexOf(codeBlockMarker)
+  }
+  spoken += rest
+
+  return spoken
+    .replace(/(for example|e\.g\.|like|such as|here)(\s*,?\s*)`([^`]+)`/gi, (_match: string, lead: string, gap: string, code: string) =>
+      speakInlineCode(code) === null ? `${lead}, as shown on your screen` : `${lead}${gap}${speakInlineCode(code)}`,
+    )
+    .replace(/`([^`]+)`/g, (_match, code: string) => speakInlineCode(code) ?? 'the example on your screen')
+    .replace(/^\s*[-*+]\s+/gm, '')
     .replace(/[*_#>]+/g, '')
+    .replace(/\s+([,.?!:;])/g, '$1')
+    .replace(/:\s*(Take a)/g, '. $1')
     .replace(/\s+/g, ' ')
     .trim()
 }

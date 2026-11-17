@@ -1,14 +1,36 @@
 import { describe, expect, it } from 'vitest'
-import { pickDefaultVoice, splitIntoChunks, toSpeakableText } from './speech'
+import { pickDefaultVoice, speakInlineCode, splitIntoChunks, toSpeakableText } from './speech'
 
 function voice(name: string, lang: string) {
   return { name, lang } as SpeechSynthesisVoice
 }
 
 describe('toSpeakableText', () => {
-  it('replaces code blocks and strips markdown symbols', () => {
-    expect(toSpeakableText('Look at this:\n```js\nconst a = 1\n```\nWhat does **it** do?')).toBe('Look at this: (the code is on your screen) What does it do?')
-    expect(toSpeakableText('Why does `useEffect` re-run?')).toBe('Why does useEffect re-run?')
+  it('points to code blocks on screen instead of reading them, and strips markdown', () => {
+    expect(toSpeakableText('Look at this snippet:\n```js\nconst a = 1\n```\nWhat does **it** do?')).toBe(
+      'Look at this snippet. Take a moment to read it on your screen. What does it do?',
+    )
+    expect(toSpeakableText('Predict the output.\n```js\nfor (var i = 0; i < 3; i++) setTimeout(() => console.log(i))\n```')).toBe(
+      'Predict the output. Take a look at the code on your screen.',
+    )
+  })
+
+  it('speaks inline code the way an interviewer would', () => {
+    expect(toSpeakableText('Why does `useEffect` re-run?')).toBe('Why does use Effect re-run?')
+    expect(
+      toSpeakableText(
+        '**Question 1:** each interval is `[start, end]`, for example `[[9, 12], [1, 3]]`. Write a function `mergeIntervals(intervals)` that returns `[[1, 4], [9, 13]]`.',
+      ),
+    ).toBe('Question 1: each interval is start and end, for example, as shown on your screen. Write a function merge Intervals that returns the example on your screen.')
+    expect(toSpeakableText('When would you use `===` over `Promise.allSettled`?')).toBe('When would you use triple equals over Promise all Settled?')
+  })
+})
+
+describe('speakInlineCode', () => {
+  it('reads names and field lists, and returns null for literal-heavy code', () => {
+    expect(speakInlineCode('{ value, next }')).toBe('value and next')
+    expect(speakInlineCode('reverseList(head)')).toBe('reverse List')
+    expect(speakInlineCode('0.1 + 0.2')).toBeNull()
   })
 })
 

@@ -1,5 +1,5 @@
 import { openSpeechStream } from '../services/interviewApi'
-import { isSpeechSynthesisSupported, takeSentences, toSpeakableText } from './speech'
+import { collapseCodeBlocks, isSpeechSynthesisSupported, takeSentences, toSpeakableText } from './speech'
 
 const sampleRate = 24_000
 /** Group tiny network chunks into ~0.2 s buffers for smooth, gapless playback. */
@@ -143,8 +143,11 @@ export class LiveSpeaker {
   feed(delta: string) {
     this.ended = false
     this.buffer += delta
-    const { sentences, rest } = takeSentences(this.buffer)
-    this.buffer = rest
+    // Never split inside a code block that is still streaming; finished blocks become one marker (no newlines).
+    const fences = this.buffer.match(/```/g)?.length ?? 0
+    const openFenceAt = fences % 2 === 1 ? this.buffer.lastIndexOf('```') : this.buffer.length
+    const { sentences, rest } = takeSentences(collapseCodeBlocks(this.buffer.slice(0, openFenceAt)))
+    this.buffer = rest + this.buffer.slice(openFenceAt)
     sentences.forEach((sentence) => this.enqueue(sentence))
   }
 
