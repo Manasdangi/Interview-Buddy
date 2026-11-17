@@ -22,6 +22,8 @@ type CodeEditorPanelProps = {
   sessionId: string
   /** Receives the latest editor contents whenever they change. */
   onCodeChange: (code: string) => void
+  /** Narrow column beside the chat. */
+  side?: boolean
 }
 
 /** Lives inside the Sandpack provider: reports edits upward and keeps a per-session draft so a refresh does not lose work. */
@@ -51,7 +53,7 @@ function EditorBridge({ sessionId, onCodeChange }: CodeEditorPanelProps) {
   )
 }
 
-export default function CodeEditorPanel({ sessionId, onCodeChange }: CodeEditorPanelProps) {
+export default function CodeEditorPanel({ sessionId, onCodeChange, side = false }: CodeEditorPanelProps) {
   const { theme } = useTheme()
   return (
     <div className="space-y-2">
@@ -63,8 +65,17 @@ export default function CodeEditorPanel({ sessionId, onCodeChange }: CodeEditorP
       >
         <EditorBridge sessionId={sessionId} onCodeChange={onCodeChange} />
         <SandpackLayout style={{ borderRadius: 24, overflow: 'hidden' }}>
-          <SandpackCodeEditor showLineNumbers showTabs={false} style={{ height: 420, minWidth: 280, flex: '1 1 320px' }} />
-          <SandpackPreview showNavigator={false} showOpenInCodeSandbox={false} style={{ height: 420, minWidth: 280, flex: '1 1 320px' }} />
+          {/* Beside the chat the panel is narrow, so code and preview stack. */}
+          <SandpackCodeEditor
+            showLineNumbers
+            showTabs={false}
+            style={side ? { height: 'calc(100vh - 470px)', minHeight: 320, flex: '1 1 100%' } : { height: 420, minWidth: 280, flex: '1 1 320px' }}
+          />
+          <SandpackPreview
+            showNavigator={false}
+            showOpenInCodeSandbox={false}
+            style={side ? { height: 200, flex: '1 1 100%' } : { height: 420, minWidth: 280, flex: '1 1 320px' }}
+          />
         </SandpackLayout>
       </SandpackProvider>
     </div>

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Code2, Mic } from 'lucide-react'
+import { ChevronDown, Code2, Mic } from 'lucide-react'
 import { useInterviewStore } from '../store/interviewStore'
 import { ChatPanel } from '../components/interview/ChatPanel'
 import { InterviewControls } from '../components/interview/InterviewControls'
@@ -15,6 +15,7 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Loader } from '../components/ui/Loader'
 import { saveQuitSummary as saveQuitSummaryApi } from '../services/interviewApi'
+import { cn } from '../utils/cn'
 
 // The editor pulls in the Sandpack bundler, so it only loads when the interview actually uses it.
 const CodeEditorPanel = lazy(() => import('../components/interview/CodeEditorPanel'))
@@ -37,6 +38,8 @@ export default function InterviewRoomPage() {
   const [codeEdited, setCodeEdited] = useState(false)
   const editorCodeRef = useRef('')
   const controlsRef = useRef<HTMLDivElement | null>(null)
+  const chatScrollRef = useRef<HTMLDivElement | null>(null)
+  const [sessionInfoOpen, setSessionInfoOpen] = useState(false)
   const lastAutoScrolledMessageIdRef = useRef<string | null>(null)
   const lastSpokenMessageIdRef = useRef<string | null>(null)
   const allowBrowserBackRef = useRef(false)
@@ -175,6 +178,12 @@ export default function InterviewRoomPage() {
 
     return () => window.cancelAnimationFrame(frameId)
   }, [currentSession?.messages])
+
+  // In the coding layout the chat scrolls inside its card; keep the newest message (and streaming reply) in view.
+  useEffect(() => {
+    const container = chatScrollRef.current
+    if (container && editorOpen) container.scrollTop = container.scrollHeight
+  }, [currentSession?.messages.length, streamingReply, pendingVoiceTranscript, editorOpen])
 
   useEffect(() => {
     return () => {
@@ -321,18 +330,191 @@ export default function InterviewRoomPage() {
     }
   }
 
+  const maxDurationSeconds = currentSession.company ? currentSession.company.durationMinutes * 60 : undefined
+  // One timer owns the time limit; the popover copy below is display-only.
+  const timer = (
+    <InterviewTimer
+      startedAt={currentSession.startedAt}
+      completedAt={currentSession.completedAt}
+      messages={currentSession.messages}
+      maxDurationSeconds={maxDurationSeconds}
+      onTimeUp={handleTimeUp}
+      variant={editorOpen ? 'compact' : 'full'}
+    />
+  )
+
+  const notices = (
+    <>
+      {error ? <div className="rounded-3xl border border-rose-700/40 bg-rose-950/80 p-4 text-sm text-rose-200">{error}</div> : null}
+      {hasActiveInterview && !audioReady ? (
+        <Card className="rounded-[2rem] border-indigo-500/40 bg-indigo-950/40 p-6 text-center shadow-soft">
+          <h2 className="text-2xl font-semibold text-white">Your interviewer is ready</h2>
+          <p className="mt-2 text-slate-300">The interviewer will ask each question out loud. Answer by speaking, just like a real interview.</p>
+          <Button
+            className="mt-5 gap-2"
+            onClick={() => {
+              unlockAudio()
+              setAudioReady(true)
+            }}
+          >
+            <Mic className="h-4 w-4" />
+            Start interview
+          </Button>
+        </Card>
+      ) : null}
+    </>
+  )
+
+  const chatCard = (
+    <Card className={cn('rounded-[2rem] border-slate-800/80 bg-slate-950/90 shadow-soft', editorOpen ? 'p-5' : 'p-6')}>
+      <div className={cn('flex items-center justify-between gap-4', editorOpen ? 'mb-4' : 'mb-6')}>
+        <div>
+          <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Live interviewer</p>
+          <h2 className={cn('mt-2 font-semibold text-white', editorOpen ? 'text-xl' : 'text-2xl')}>AI Interview Chat</h2>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant={editorOpen ? 'primary' : 'secondary'} className="gap-2" onClick={() => setShowEditor(!editorOpen)}>
+            <Code2 className="h-4 w-4" />
+            {editorOpen ? 'Close editor' : 'Code editor'}
+          </Button>
+          {editorOpen ? null : (
+            <Button
+              variant="ghost"
+              onClick={async () => {
+                if (await confirmExitInterview()) {
+                  navigate('/dashboard')
+                }
+              }}
+            >
+              Back to dashboard
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Beside the editor the chat scrolls on its own so the voice panel stays in view. */}
+      <div ref={chatScrollRef} className={cn('space-y-4', editorOpen && 'max-h-[calc(100vh-460px)] min-h-[200px] overflow-y-auto pr-1')}>
+        <ChatPanel messages={currentSession.messages} pendingVoiceTranscript={pendingVoiceTranscript} streamingReply={streamingReply} />
+      </div>
+    </Card>
+  )
+
+  const editorCard = editorOpen ? (
+    <Card className="space-y-4 rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-5 shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-white">Code editor</h2>
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            checked={attachCode}
+            onChange={(event) => setAttachCode(event.target.checked)}
+            className="h-4 w-4 rounded border-slate-600 bg-slate-900"
+          />
+          Attach my code to my answer{attachCode && !codeEdited ? ' (once you edit it)' : ''}
+        </label>
+      </div>
+      <Suspense fallback={<Loader />}>
+        <CodeEditorPanel sessionId={currentSession.id} onCodeChange={handleCodeChange} side />
+      </Suspense>
+      {attachError ? <p className="text-sm text-rose-300">{attachError}</p> : null}
+    </Card>
+  ) : null
+
+  const controls = (
+    <div ref={controlsRef}>
+      {voiceMode && hasActiveInterview && audioReady ? (
+        <VoiceInterviewBar
+          phase={activeVoice.phase}
+          level={activeVoice.level}
+          error={activeVoice.error ?? (useLive ? null : liveUnavailable)}
+          canRetrySend={activeVoice.canRetrySend}
+          onFinishAnswer={activeVoice.finishAnswer}
+          onAnswerNow={activeVoice.answerNow}
+          onRetrySend={activeVoice.retrySend}
+          onTypeInstead={() => {
+            // The current question was already read aloud; do not read it again in typing mode.
+            lastSpokenMessageIdRef.current = pendingQuestion?.id ?? lastSpokenMessageIdRef.current
+            setVoiceInterview(false)
+          }}
+          onEndInterview={handleComplete}
+          ending={completing}
+          liveMode={useLive}
+          compact={editorOpen}
+        />
+      ) : (
+        <InterviewControls
+          onSubmit={handleSend}
+          onComplete={handleComplete}
+          onSwitchToVoice={
+            micSupported
+              ? () => {
+                  stopSpeech()
+                  unlockAudio()
+                  setAudioReady(true)
+                  setVoiceInterview(true)
+                }
+              : undefined
+          }
+          loading={sending || completing}
+          disabled={currentSession.status === 'COMPLETED'}
+        />
+      )}
+    </div>
+  )
+
+  // Coding layout: chat and voice on the left, the editor on the right, session details tucked into a popover.
+  if (editorOpen) {
+    const sessionLabel = currentSession.company
+      ? `${currentSession.company.companyName} · ${currentSession.company.roundTitle}`
+      : `${currentSession.interviewType.replace('_', ' ')} · ${currentSession.difficulty.toLowerCase()}`
+
+    return (
+      <div className="space-y-4">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setSessionInfoOpen((open) => !open)}
+            aria-expanded={sessionInfoOpen}
+            className="flex items-center gap-3 rounded-full border border-slate-800 bg-slate-950/90 px-4 py-2 text-sm text-slate-200 shadow-soft transition hover:border-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span className="font-medium text-white">{sessionLabel}</span>
+            <span className="text-slate-600">|</span>
+            {timer}
+            <ChevronDown className={cn('h-4 w-4 text-slate-400 transition', sessionInfoOpen && 'rotate-180')} aria-hidden="true" />
+          </button>
+          {sessionInfoOpen ? (
+            <>
+              <button type="button" aria-label="Close session details" className="fixed inset-0 z-30 cursor-default" onClick={() => setSessionInfoOpen(false)} />
+              <div className="absolute left-0 top-12 z-40 w-[min(360px,90vw)] space-y-4 rounded-[2rem] border border-slate-800 bg-slate-950 p-4 shadow-soft">
+                <ProblemStatement session={currentSession} />
+                <InterviewTimer
+                  startedAt={currentSession.startedAt}
+                  completedAt={currentSession.completedAt}
+                  messages={currentSession.messages}
+                  maxDurationSeconds={maxDurationSeconds}
+                />
+              </div>
+            </>
+          ) : null}
+        </div>
+        {notices}
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="space-y-4">
+            {chatCard}
+            {controls}
+          </div>
+          <div className="xl:sticky xl:top-24 xl:self-start">{editorCard}</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="grid gap-8 xl:grid-cols-[320px_1fr]">
-      <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+      <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
         <ProblemStatement session={currentSession} />
         <Card className="rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
-          <InterviewTimer
-            startedAt={currentSession.startedAt}
-            completedAt={currentSession.completedAt}
-            messages={currentSession.messages}
-            maxDurationSeconds={currentSession.company ? currentSession.company.durationMinutes * 60 : undefined}
-            onTimeUp={handleTimeUp}
-          />
+          {timer}
           <div className="mt-6 space-y-3 text-slate-400">
             <p className="text-sm font-medium text-white">How it works</p>
             <p>The interviewer asks each question out loud. When it&apos;s your turn, answer by speaking; pause for a moment and your answer is sent.</p>
@@ -341,114 +523,9 @@ export default function InterviewRoomPage() {
       </div>
 
       <div className="space-y-6">
-        {error ? <div className="rounded-3xl border border-rose-700/40 bg-rose-950/80 p-4 text-sm text-rose-200">{error}</div> : null}
-        {hasActiveInterview && !audioReady ? (
-          <Card className="rounded-[2rem] border-indigo-500/40 bg-indigo-950/40 p-6 text-center shadow-soft">
-            <h2 className="text-2xl font-semibold text-white">Your interviewer is ready</h2>
-            <p className="mt-2 text-slate-300">The interviewer will ask each question out loud. Answer by speaking, just like a real interview.</p>
-            <Button
-              className="mt-5 gap-2"
-              onClick={() => {
-                unlockAudio()
-                setAudioReady(true)
-              }}
-            >
-              <Mic className="h-4 w-4" />
-              Start interview
-            </Button>
-          </Card>
-        ) : null}
-        <Card className="rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Live interviewer</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">AI Interview Chat</h2>
-            </div>
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button variant={editorOpen ? 'primary' : 'secondary'} className="gap-2" onClick={() => setShowEditor(!editorOpen)}>
-                <Code2 className="h-4 w-4" />
-                Code editor
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={async () => {
-                  if (await confirmExitInterview()) {
-                    navigate('/dashboard')
-                  }
-                }}
-              >
-                Back to dashboard
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <ChatPanel messages={currentSession.messages} pendingVoiceTranscript={pendingVoiceTranscript} streamingReply={streamingReply} />
-          </div>
-        </Card>
-
-        {editorOpen ? (
-          <Card className="space-y-4 rounded-[2rem] border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Machine coding</p>
-                <h2 className="mt-1 text-xl font-semibold text-white">Code editor with live preview</h2>
-              </div>
-              <label className="flex items-center gap-2 text-sm text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={attachCode}
-                  onChange={(event) => setAttachCode(event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-600 bg-slate-900"
-                />
-                Attach my code to my answer{attachCode && !codeEdited ? ' (once you edit it)' : ''}
-              </label>
-            </div>
-            <Suspense fallback={<Loader />}>
-              <CodeEditorPanel sessionId={currentSession.id} onCodeChange={handleCodeChange} />
-            </Suspense>
-            {attachError ? <p className="text-sm text-rose-300">{attachError}</p> : null}
-          </Card>
-        ) : null}
-
-        <div ref={controlsRef}>
-          {voiceMode && hasActiveInterview && audioReady ? (
-            <VoiceInterviewBar
-              phase={activeVoice.phase}
-              level={activeVoice.level}
-              error={activeVoice.error ?? (useLive ? null : liveUnavailable)}
-              canRetrySend={activeVoice.canRetrySend}
-              onFinishAnswer={activeVoice.finishAnswer}
-              onAnswerNow={activeVoice.answerNow}
-              onRetrySend={activeVoice.retrySend}
-              onTypeInstead={() => {
-                // The current question was already read aloud; do not read it again in typing mode.
-                lastSpokenMessageIdRef.current = pendingQuestion?.id ?? lastSpokenMessageIdRef.current
-                setVoiceInterview(false)
-              }}
-              onEndInterview={handleComplete}
-              ending={completing}
-              liveMode={useLive}
-            />
-          ) : (
-            <InterviewControls
-              onSubmit={handleSend}
-              onComplete={handleComplete}
-              onSwitchToVoice={
-                micSupported
-                  ? () => {
-                      stopSpeech()
-                      unlockAudio()
-                      setAudioReady(true)
-                      setVoiceInterview(true)
-                    }
-                  : undefined
-              }
-              loading={sending || completing}
-              disabled={currentSession.status === 'COMPLETED'}
-            />
-          )}
-        </div>
+        {notices}
+        {chatCard}
+        {controls}
       </div>
     </div>
   )

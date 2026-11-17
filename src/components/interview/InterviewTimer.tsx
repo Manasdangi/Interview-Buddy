@@ -11,6 +11,8 @@ type InterviewTimerProps = {
   questionTargetSeconds?: number
   /** Called once when the overall limit is reached while the interview is still running. */
   onTimeUp?: () => void
+  /** Compact: just the remaining time, for the slim bar shown while the code editor is open. */
+  variant?: 'full' | 'compact'
 }
 
 // Ascending, so the tightest threshold that applies wins.
@@ -28,6 +30,7 @@ export function InterviewTimer({
   maxDurationSeconds = interviewLimitSeconds,
   questionTargetSeconds: questionTarget = questionTargetSeconds,
   onTimeUp,
+  variant = 'full',
 }: InterviewTimerProps) {
   const [now, setNow] = useState(() => Date.now())
   const timeUpFiredRef = useRef(false)
@@ -59,6 +62,15 @@ export function InterviewTimer({
 
   const tone = finished ? 'text-slate-300' : timeUp || remainingSeconds <= 60 ? 'text-rose-300' : remainingSeconds <= 5 * 60 ? 'text-amber-300' : 'text-white'
   const questionProgress = Math.min(100, (questionSeconds / questionTarget) * 100)
+
+  if (variant === 'compact') {
+    return (
+      <span className={cn('font-semibold tabular-nums', tone)} aria-label={finished ? undefined : `${remainingMinutes} minutes left`}>
+        {formatSeconds(finished ? elapsedSeconds : remainingSeconds)}
+        <span className="ml-1 font-normal text-slate-400">{finished ? 'taken' : 'left'}</span>
+      </span>
+    )
+  }
 
   return (
     <div className="space-y-4 rounded-3xl border border-slate-800/80 bg-slate-950/90 p-4 text-sm text-slate-300 shadow-soft">

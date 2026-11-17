@@ -17,6 +17,8 @@ type VoiceInterviewBarProps = {
   ending?: boolean
   /** ChatGPT-style live mode: the candidate can talk over the interviewer. */
   liveMode?: boolean
+  /** Smaller panel for the coding layout. */
+  compact?: boolean
 }
 
 type PhaseView = { title: string; detail: string; tone: 'interviewer' | 'you' | 'wait' }
@@ -79,35 +81,39 @@ export function VoiceInterviewBar({
   onEndInterview,
   ending = false,
   liveMode = false,
+  compact = false,
 }: VoiceInterviewBarProps) {
   const view = describe(phase, liveMode)
 
   return (
     <section
       className={cn(
-        'rounded-[2rem] border p-6 shadow-soft transition-colors',
+        'rounded-[2rem] border shadow-soft transition-colors',
+        compact ? 'p-4' : 'p-6',
         view.tone === 'you' ? 'border-emerald-500/40 bg-emerald-500/5' : view.tone === 'interviewer' ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-slate-800/80 bg-slate-950/90',
       )}
       aria-label="Voice interview"
     >
-      <div className="flex flex-col items-center gap-3 text-center">
+      <div className={cn('flex items-center gap-3', compact ? 'flex-row text-left' : 'flex-col text-center')}>
         <span
           className={cn(
-            'grid h-14 w-14 place-items-center rounded-full',
+            'grid shrink-0 place-items-center rounded-full',
+            compact ? 'h-10 w-10' : 'h-14 w-14',
             view.tone === 'you' ? 'bg-emerald-500 text-pure' : view.tone === 'interviewer' ? 'bg-primary text-pure' : 'bg-slate-800 text-slate-300',
           )}
         >
           {view.tone === 'you' ? <Mic className="h-6 w-6" aria-hidden="true" /> : <Volume2 className="h-6 w-6" aria-hidden="true" />}
         </span>
-        <div aria-live="polite">
-          <p className="text-lg font-semibold text-white">{view.title}</p>
+        <div aria-live="polite" className={compact ? 'min-w-0 flex-1' : undefined}>
+          <p className={cn('font-semibold text-white', compact ? 'text-base' : 'text-lg')}>{view.title}</p>
           {view.detail ? <p className="mt-1 text-sm text-slate-400">{view.detail}</p> : null}
         </div>
-        <Waveform level={level} tone={view.tone} />
-        {error ? <p className="text-sm text-amber-300">{error}</p> : null}
+        {compact ? null : <Waveform level={level} tone={view.tone} />}
+        {error && !compact ? <p className="text-sm text-amber-300">{error}</p> : null}
       </div>
+      {error && compact ? <p className="mt-2 text-sm text-amber-300">{error}</p> : null}
 
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+      <div className={cn('flex flex-wrap items-center gap-2', compact ? 'mt-3 justify-start' : 'mt-5 justify-center')}>
         {phase === 'listening' ? (
           <Button type="button" className="gap-2 px-4 py-2" onClick={onFinishAnswer}>
             <Square className="h-4 w-4" />
