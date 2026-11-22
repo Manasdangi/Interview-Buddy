@@ -17,6 +17,7 @@ type Solution = {
 type Problem = {
   id: number
   lc: number
+  slug: string
   title: string
   difficulty: 'Easy' | 'Medium' | 'Hard'
   pattern: string
@@ -163,7 +164,7 @@ function ProblemRow({ problem }: { problem: Problem }) {
               Step-by-step dry run <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             </a>
             <a
-              href={`https://leetcode.com/problemset/?search=${encodeURIComponent(problem.title)}`}
+              href={`https://leetcode.com/problems/${problem.slug}/`}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-slate-400 hover:text-slate-200"

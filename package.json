@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "backend": "cd server && npm run dev",
     "dev:server": "cd server && npm run dev",
-    "test": "cd server && npm test"
+    "test": "cd server && npm test",
+    "sync:dsa": "node scripts/sync-dsa-atlas.mjs"
   },
   "dependencies": {
     "@codesandbox/sandpack-react": "^2.20.0",
