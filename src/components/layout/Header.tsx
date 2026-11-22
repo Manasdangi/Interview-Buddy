@@ -11,6 +11,7 @@ import { Button } from '../ui/Button'
 const navItems = [
   { label: 'Home', to: '/' },
   { label: 'Companies', to: '/companies' },
+  { label: 'DSA', to: '/dsa' },
   { label: 'Dashboard', to: '/dashboard' },
 ]
 

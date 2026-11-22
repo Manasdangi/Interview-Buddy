@@ -1,4 +1,6 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Loader } from '../components/ui/Loader'
 import HomePage from '../pages/HomePage'
 import SelectInterviewPage from '../pages/SelectInterviewPage'
 import SelectDifficultyPage from '../pages/SelectDifficultyPage'
@@ -7,6 +9,9 @@ import ResultsPage from '../pages/ResultsPage'
 import DashboardPage from '../pages/DashboardPage'
 import CompaniesPage from '../pages/CompaniesPage'
 import CompanyPage from '../pages/CompanyPage'
+
+// The DSA list ships ~190 KB of problems and code, so it loads only when the tab is opened.
+const DsaPage = lazy(() => import('../pages/DsaPage'))
 
 export function Router() {
   return (
@@ -19,6 +24,14 @@ export function Router() {
       <Route path="/interview/:sessionId" element={<InterviewRoomPage />} />
       <Route path="/results/:sessionId" element={<ResultsPage />} />
       <Route path="/dashboard" element={<DashboardPage />} />
+      <Route
+        path="/dsa"
+        element={
+          <Suspense fallback={<Loader />}>
+            <DsaPage />
+          </Suspense>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
