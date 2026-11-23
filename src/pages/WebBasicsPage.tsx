@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Check, ChevronDown, Copy, Link2, Search } from 'lucide-react'
 import { Input } from '../components/ui/Input'
 import { WebDiagram } from '../components/web/WebDiagram'
-import { webQuestions, webTopics, type WebQuestion, type WebTopic } from '../data/webQuestions'
+import { webGroups, webQuestions, webTopics, type WebQuestion, type WebTopic } from '../data/webQuestions'
 import { cn } from '../utils/cn'
 
 const levelStyle: Record<WebQuestion['level'], string> = {
@@ -100,6 +100,7 @@ export default function WebBasicsPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
+  const [group, setGroup] = useState('All')
   const [openIds, setOpenIds] = useState<Set<string>>(() => new Set())
 
   const hashId = location.hash.slice(1)
@@ -115,17 +116,33 @@ export default function WebBasicsPage() {
     window.requestAnimationFrame(() => document.getElementById(linked.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }, [linked])
 
+  const groupNames = webGroups[topic].map((item) => item.name)
+  const activeGroup = groupNames.includes(group) ? group : 'All'
+
   const list = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return webQuestions.filter(
       (question) =>
         question.topic === topic &&
+        (activeGroup === 'All' || question.group === activeGroup) &&
         (!needle || question.title.toLowerCase().includes(needle) || question.answer.toLowerCase().includes(needle) || question.remember.toLowerCase().includes(needle)),
     )
-  }, [topic, query])
+  }, [topic, query, activeGroup])
+
+  const sections = useMemo(() => {
+    const out: { name: string; items: { question: WebQuestion; index: number }[] }[] = []
+    list.forEach((question, index) => {
+      const name = question.group ?? 'Questions'
+      const last = out[out.length - 1]
+      if (last && last.name === name) last.items.push({ question, index })
+      else out.push({ name, items: [{ question, index }] })
+    })
+    return out
+  }, [list])
 
   const switchTopic = (next: WebTopic) => {
     setQuery('')
+    setGroup('All')
     navigate({ search: `?topic=${next}`, hash: '' }, { replace: true })
   }
 
@@ -174,6 +191,24 @@ export default function WebBasicsPage() {
             <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${current.name} questions…`} className="pl-10" />
           </label>
         </div>
+
+        <div className="mt-4 flex flex-wrap gap-2" role="radiogroup" aria-label={`${current.name} sub-topic`}>
+          {['All', ...groupNames].map((name) => (
+            <button
+              key={name}
+              type="button"
+              role="radio"
+              aria-checked={activeGroup === name}
+              onClick={() => setGroup(name)}
+              className={cn(
+                'rounded-full border px-3 py-1.5 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                activeGroup === name ? 'border-indigo-300 bg-indigo-950/60 text-white' : 'border-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200',
+              )}
+            >
+              {name === 'All' ? `All ${current.name}` : name}
+            </button>
+          ))}
+        </div>
       </div>
 
       <section aria-labelledby="web-topic-heading" className="space-y-3">
@@ -184,13 +219,22 @@ export default function WebBasicsPage() {
           <p className="text-sm text-slate-400">{current.tagline}</p>
         </div>
         {list.length ? (
-          <ul className="space-y-3">
-            {list.map((question, index) => (
-              <QuestionRow key={question.id} question={question} index={index} open={isOpen(question.id)} onToggle={() => toggle(question.id)} />
+          <div className="space-y-8">
+            {sections.map((section) => (
+              <div key={section.name} className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  {section.name} <span className="font-normal normal-case tracking-normal">· {section.items.length}</span>
+                </h3>
+                <ul className="space-y-3">
+                  {section.items.map(({ question, index }) => (
+                    <QuestionRow key={question.id} question={question} index={index} open={isOpen(question.id)} onToggle={() => toggle(question.id)} />
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         ) : (
-          <p className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-8 text-center text-slate-400">No questions match “{query}”.</p>
+          <p className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-8 text-center text-slate-400">No questions match these filters.</p>
         )}
       </section>
     </div>
