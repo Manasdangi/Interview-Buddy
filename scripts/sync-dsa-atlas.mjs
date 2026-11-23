@@ -1,10 +1,13 @@
 // Pulls the latest DSA Memory Atlas into src/data/dsaAtlas.json.
 // Usage: npm run sync:dsa   (optionally ATLAS_URL=http://localhost:8766)
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import vm from 'node:vm'
 
 const ATLAS = (process.env.ATLAS_URL || 'https://dsa-memory-atlas.vercel.app').replace(/\/$/, '')
 const OUT = new URL('../src/data/dsaAtlas.json', import.meta.url)
+// The step-by-step illustrations are drawn by the atlas's own renderer, served from public/atlas/.
+const VIZ_DIR = new URL('../public/atlas/', import.meta.url)
+const VIZ_FILES = ['viz.js', 'viz-x.js', 'intuition.js', 'dry1.js', 'dry2.js', 'dry3.js', 'dry4.js']
 
 const get = async (path) => {
   const res = await fetch(`${ATLAS}/${path}`)
@@ -57,4 +60,6 @@ const problems = JSON.parse(problemsText).map((p) => {
 })
 
 await writeFile(OUT, JSON.stringify({ patterns, problems }))
-console.log(`dsaAtlas.json: ${patterns.length} patterns, ${problems.length} problems, ${problems.reduce((n, p) => n + p.solutions.length, 0)} solutions`)
+await mkdir(VIZ_DIR, { recursive: true })
+for (const file of VIZ_FILES) await writeFile(new URL(file, VIZ_DIR), await get(file))
+console.log(`dsaAtlas.json + public/atlas (${VIZ_FILES.length} files): ${patterns.length} patterns, ${problems.length} problems, ${problems.reduce((n, p) => n + p.solutions.length, 0)} solutions`)
