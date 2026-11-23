@@ -27,7 +27,7 @@ type ClaudePayload = {
   model: string
   max_tokens: number
   system: string
-  messages: Array<{ role: 'user'; content: string }>
+  messages: Array<{ role: 'user'; content: string | Array<Record<string, unknown>> }>
   tools?: Array<{ name: string; description: string; input_schema: JsonSchema; eager_input_streaming?: boolean }>
   tool_choice?: { type: 'auto' }
   stream?: boolean
@@ -274,6 +274,36 @@ export async function generateJson(systemPrompt: string, userPrompt: string, sch
   }
 
   // The model answered in text instead of calling the tool: hand back the text for the tolerant JSON parser.
+  const text = (data.content ?? []).map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('').trim()
+  if (!text) {
+    throw new HttpError(502, 'Claude returned an empty response. Please retry.')
+  }
+  return text
+}
+
+/**
+ * Like generateJson, but sends a PDF alongside the prompt; Claude reads the document natively
+ * (text and layout), so no PDF parsing is needed on our side.
+ */
+export async function generateJsonFromPdf(systemPrompt: string, pdfBase64: string, userPrompt: string, schema: JsonSchema) {
+  const payload = buildPayload(systemPrompt, userPrompt, REPORT_MAX_TOKENS, schema)
+  payload.messages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+        { type: 'text', text: userPrompt },
+      ],
+    },
+  ]
+  const data = await callClaude(payload, 'Claude could not review the resume.', REPORT_TIMEOUT_MS)
+  if (data.stop_reason === 'max_tokens') {
+    throw new HttpError(502, 'The review was cut off. Please retry.')
+  }
+  const toolUse = (data.content ?? []).find((block) => block.type === 'tool_use')
+  if (toolUse && toolUse.input !== undefined && toolUse.input !== null) {
+    return JSON.stringify(toolUse.input)
+  }
   const text = (data.content ?? []).map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('').trim()
   if (!text) {
     throw new HttpError(502, 'Claude returned an empty response. Please retry.')

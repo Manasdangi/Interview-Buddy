@@ -13,6 +13,7 @@ import CompanyPage from '../pages/CompanyPage'
 // The DSA list ships ~190 KB of problems and code, so it loads only when the tab is opened.
 const DsaPage = lazy(() => import('../pages/DsaPage'))
 const WebBasicsPage = lazy(() => import('../pages/WebBasicsPage'))
+const ResumeReviewPage = lazy(() => import('../pages/ResumeReviewPage'))
 
 export function Router() {
   return (
@@ -38,6 +39,14 @@ export function Router() {
         element={
           <Suspense fallback={<Loader />}>
             <WebBasicsPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/resume"
+        element={
+          <Suspense fallback={<Loader />}>
+            <ResumeReviewPage />
           </Suspense>
         }
       />
