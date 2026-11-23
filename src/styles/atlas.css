@@ -246,6 +246,17 @@
 .atlas .wd-table td { border-bottom: 1px solid var(--line); padding: 6px 8px; color: var(--ink); }
 .atlas .wd-table td:first-child { font-family: var(--f-mono); font-size: 13px; font-weight: 600; white-space: nowrap; }
 
+/* live CSS demos */
+.atlas .demo { margin: 12px 0; border: 1.5px solid var(--accent); border-radius: 12px; padding: 10px; background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+.atlas .demo-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin-bottom: 8px; }
+.atlas .demo-tag { font: 700 11px/1 var(--f-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--card); background: var(--accent); border-radius: 4px; padding: 4px 7px; }
+.atlas .demo-hint { font-family: var(--f-hand); font-size: 19px; font-weight: 700; line-height: 1.2; color: var(--accent); }
+.atlas .demo-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.atlas .demo-stage { overflow-x: auto; text-align: center; }
+.atlas .demo-frame { display: block; max-width: none; margin: 0 auto; border: 1.5px solid var(--ink); border-radius: 10px; background: #fcfcf9; }
+.atlas .demo-width { display: inline-block; margin-top: 4px; font: 500 11px var(--f-mono); color: var(--muted); }
+.atlas .demo-css { margin-top: 8px; border-radius: 8px; background: var(--code-bg); padding: 10px 12px; font-size: 12.5px; white-space: pre-wrap; }
+
 @media (max-width: 900px) {
   .atlas .col2 { grid-template-columns: minmax(0, 1fr); }
   .atlas .side { position: sticky; top: calc(var(--hdr, 73px) + var(--tools-h, 104px)); z-index: 15; max-height: none; overflow-x: auto; overflow-y: hidden; padding: 8px 0; background: color-mix(in srgb, var(--paper) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); scrollbar-width: none; }
