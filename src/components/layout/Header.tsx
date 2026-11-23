@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Companies', to: '/companies' },
   { label: 'DSA', to: '/dsa' },
   { label: 'HTML/CSS/JS', to: '/web' },
+  { label: 'Resume ATS', to: '/resume' },
   { label: 'Dashboard', to: '/dashboard' },
 ]
 

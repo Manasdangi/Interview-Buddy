@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import interviewRoutes from './routes/interviewRoutes.js'
+import resumeRoutes from './routes/resumeRoutes.js'
 
 dotenv.config()
 
@@ -16,6 +17,7 @@ const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
 app.use(cors({ origin: allowedOrigins }))
 app.use(express.json({ limit: '5mb' }))
 app.use('/api/interviews', interviewRoutes)
+app.use('/api/resume', resumeRoutes)
 
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' })

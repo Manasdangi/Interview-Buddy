@@ -13,6 +13,7 @@ import {
 import { maxSpeechTextLength, streamSpeech } from '../services/speechService.js'
 import { listSummariesForUser, saveCompletedSummary, saveQuitSummary } from '../services/interviewSummaryService.js'
 import { enforceRateLimit } from './rateLimit.js'
+import { reviewResume } from '../services/resumeReviewService.js'
 
 /** Framework-neutral request shape shared by the Express server and the Vercel functions. */
 export type ApiRequest = {
@@ -172,4 +173,11 @@ export const transcribe: ApiHandler = async (req) => {
 
   const transcript = await transcribeSessionAudio(id, audioBase64, mimeType, access)
   return { status: 200, body: { transcript } }
+}
+
+export const resumeReview: ApiHandler = async (req) => {
+  const uid = await getRequestUserId(req.headers.authorization)
+  enforceRateLimit(`resume:${uid ?? req.ip ?? 'unknown'}`, 10, hourMs)
+  const review = await reviewResume(getBody(req))
+  return { status: 200, body: { review } }
 }
