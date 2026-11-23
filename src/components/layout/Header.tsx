@@ -12,6 +12,7 @@ const navItems = [
   { label: 'Home', to: '/' },
   { label: 'Companies', to: '/companies' },
   { label: 'DSA', to: '/dsa' },
+  { label: 'HTML/CSS/JS', to: '/web' },
   { label: 'Dashboard', to: '/dashboard' },
 ]
 
@@ -57,26 +58,29 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-800/70 bg-slate-950/85 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4">
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-4 md:flex-nowrap">
         <Link to="/" className="flex items-center gap-2.5 text-xl font-semibold text-white">
           <img src="/favicon.svg" alt="" className="h-8 w-8" />
           Interview Buddy
         </Link>
-        <nav className="flex flex-wrap items-center justify-end gap-3">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                cn(
-                  'rounded-full px-4 py-2 text-sm font-medium transition hover:bg-slate-800/70',
-                  isActive ? 'bg-slate-800 text-white' : 'text-slate-400',
-                )
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+        <nav className="contents md:flex md:flex-1 md:flex-wrap md:items-center md:justify-end md:gap-3">
+          {/* On phones the links drop to their own scrollable row under the logo and actions. */}
+          <div className="order-last -mx-1 flex w-full gap-1 overflow-x-auto px-1 md:order-none md:mx-0 md:w-auto md:flex-wrap md:gap-3 md:overflow-visible md:px-0">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  cn(
+                    'shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition hover:bg-slate-800/70',
+                    isActive ? 'bg-slate-800 text-white' : 'text-slate-400',
+                  )
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
