@@ -1,4 +1,6 @@
 import type { Diagram } from '../components/web/WebDiagram'
+import type { Demo } from '../components/web/WebDemo'
+import { cssDemos } from './webDemosCss'
 import { htmlMore } from './webQuestionsHtml'
 import { cssMore } from './webQuestionsCss'
 import { jsMore } from './webQuestionsJs'
@@ -17,6 +19,8 @@ export type WebQuestion = {
   diagram: Diagram
   /** sub-topic heading, filled in from GROUPS below */
   group?: string
+  /** live, editable-by-tabs preview (CSS questions), filled in from cssDemos */
+  demo?: Demo
 }
 
 export const webTopics: { key: WebTopic; name: string; tagline: string }[] = [
@@ -1116,5 +1120,5 @@ const all = [...baseQuestions, ...htmlMore, ...cssMore, ...jsMore]
 const byId = new Map(all.map((q) => [q.id, q]))
 
 export const webQuestions: WebQuestion[] = (Object.keys(webGroups) as WebTopic[]).flatMap((topic) =>
-  webGroups[topic].flatMap((group) => group.ids.map((id) => ({ ...(byId.get(id) as WebQuestion), group: group.name }))),
+  webGroups[topic].flatMap((group) => group.ids.map((id) => ({ ...(byId.get(id) as WebQuestion), group: group.name, demo: cssDemos[id] }))),
 )

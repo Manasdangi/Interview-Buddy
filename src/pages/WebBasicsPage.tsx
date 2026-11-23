@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AtlasShell } from '../components/atlas/AtlasShell'
 import { highlight } from '../components/atlas/highlight'
 import { WebDiagram } from '../components/web/WebDiagram'
+import { WebDemo } from '../components/web/WebDemo'
 import { webGroups, webQuestions, webTopics, type WebQuestion, type WebTopic } from '../data/webQuestions'
 
 const levels = ['All levels', 'Basic', 'Core', 'Advanced'] as const
@@ -50,6 +51,7 @@ function QuestionCard({ question, no }: { question: WebQuestion; no: number }) {
         </p>
       </div>
 
+      {question.demo ? <WebDemo demo={question.demo} title={question.title} /> : null}
       <WebDiagram diagram={question.diagram} />
 
       {question.code ? (
