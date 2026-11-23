@@ -1,4 +1,7 @@
 import type { Diagram } from '../components/web/WebDiagram'
+import { htmlMore } from './webQuestionsHtml'
+import { cssMore } from './webQuestionsCss'
+import { jsMore } from './webQuestionsJs'
 
 export type WebTopic = 'html' | 'css' | 'js'
 
@@ -12,6 +15,8 @@ export type WebQuestion = {
   remember: string
   code?: string
   diagram: Diagram
+  /** sub-topic heading, filled in from GROUPS below */
+  group?: string
 }
 
 export const webTopics: { key: WebTopic; name: string; tagline: string }[] = [
@@ -20,7 +25,7 @@ export const webTopics: { key: WebTopic; name: string; tagline: string }[] = [
   { key: 'js', name: 'JavaScript', tagline: 'Scope, async, the event loop and the DOM.' },
 ]
 
-export const webQuestions: WebQuestion[] = [
+const baseQuestions: WebQuestion[] = [
   /* ───────────────────────────── HTML ───────────────────────────── */
   {
     id: 'semantic-html',
@@ -1079,3 +1084,37 @@ module.exports = { double }`,
     },
   },
 ]
+
+/** Sub-topics in display order; questions appear in the order listed. */
+export const webGroups: Record<WebTopic, { name: string; ids: string[] }[]> = {
+  html: [
+    { name: 'Markup & semantics', ids: ['semantic-html', 'doctype', 'block-inline-elements', 'head-meta-seo', 'strong-vs-b', 'data-attributes', 'web-components', 'canvas-vs-svg', 'dialog-popover'] },
+    { name: 'Loading & performance', ids: ['url-to-page', 'critical-rendering-path', 'script-async-defer', 'dom-events-load', 'resource-hints', 'responsive-images', 'picture-element', 'http-caching', 'workers'] },
+    { name: 'Forms & accessibility', ids: ['accessibility', 'tabindex', 'forms-validation', 'get-vs-post', 'viewport-meta'] },
+    { name: 'Security & storage', ids: ['storage', 'cookie-security', 'cors', 'csp', 'target-blank', 'iframe-sandbox'] },
+  ],
+  css: [
+    { name: 'Selectors & cascade', ids: ['specificity', 'cascade-order', 'cascade-layers', 'inheritance', 'combinators', 'nth-child-vs-of-type', 'is-where-has', 'pseudo'] },
+    { name: 'Box model & positioning', ids: ['box-model', 'units', 'hide-element', 'position', 'sticky-not-working', 'stacking-context', 'margin-collapse', 'bfc', 'text-ellipsis', 'object-fit-aspect'] },
+    { name: 'Flexbox & Grid', ids: ['flexbox-axes', 'flex-shorthand', 'grid-vs-flex', 'grid-fr-areas', 'centering'] },
+    { name: 'Responsive design', ids: ['media-queries', 'container-queries', 'clamp', 'reduced-motion'] },
+    { name: 'Theming & architecture', ids: ['css-variables', 'dark-mode', 'css-architecture'] },
+    { name: 'Animation & performance', ids: ['reflow-repaint', 'transform-vs-position', 'transition-vs-animation', 'will-change', 'cls-prevention', 'render-blocking-css'] },
+  ],
+  js: [
+    { name: 'Types & basics', ids: ['data-types', 'var-let-const', 'null-undefined', 'falsy', 'equality', 'type-coercion', 'float-precision', 'optional-chaining', 'spread-rest', 'for-in-of', 'array-methods', 'mutating-array-methods', 'json-gotchas', 'strict-mode'] },
+    { name: 'Scope & closures', ids: ['hoisting', 'scope-chain', 'execution-context', 'closures', 'iife', 'var-loop-timeout'] },
+    { name: 'Functions & this', ids: ['this', 'arrow-functions', 'call-apply-bind', 'higher-order-pure', 'currying', 'compose-pipe'] },
+    { name: 'Objects & prototypes', ids: ['pass-by-value', 'prototype', 'new-keyword', 'classes', 'copy', 'freeze-seal', 'map-set-weakmap', 'symbol-iterator-generator', 'proxy-reflect'] },
+    { name: 'Async & the event loop', ids: ['event-loop', 'promise-states', 'promise-combinators', 'async-await', 'output-puzzle', 'fetch-abort', 'error-handling'] },
+    { name: 'DOM & browser APIs', ids: ['event-delegation', 'custom-events', 'innerhtml-xss', 'intersection-observer', 'history-api', 'raf', 'memory-leaks', 'modules'] },
+    { name: 'Implement it (machine coding)', ids: ['debounce-throttle', 'throttle-impl', 'memoize', 'polyfill-bind', 'polyfill-promise-all', 'polyfill-map-reduce', 'event-emitter'] },
+  ],
+}
+
+const all = [...baseQuestions, ...htmlMore, ...cssMore, ...jsMore]
+const byId = new Map(all.map((q) => [q.id, q]))
+
+export const webQuestions: WebQuestion[] = (Object.keys(webGroups) as WebTopic[]).flatMap((topic) =>
+  webGroups[topic].flatMap((group) => group.ids.map((id) => ({ ...(byId.get(id) as WebQuestion), group: group.name }))),
+)
