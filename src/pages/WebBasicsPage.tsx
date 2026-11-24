@@ -4,6 +4,7 @@ import { AtlasShell } from '../components/atlas/AtlasShell'
 import { highlight } from '../components/atlas/highlight'
 import { WebDiagram } from '../components/web/WebDiagram'
 import { WebDemo } from '../components/web/WebDemo'
+import { WebCases } from '../components/web/WebCases'
 import { webGroups, webQuestions, webTopics, type WebQuestion, type WebTopic } from '../data/webQuestions'
 
 const levels = ['All levels', 'Basic', 'Core', 'Advanced'] as const
@@ -68,6 +69,8 @@ function QuestionCard({ question, no }: { question: WebQuestion; no: number }) {
         </div>
       ) : null}
 
+      {question.cases?.length ? <WebCases cases={question.cases} lang={codeLang(question.topic)} /> : null}
+
       <div className="card-foot">
         <button type="button" className="foot-link" onClick={() => copy('link')}>
           {copied === 'link' ? 'Link copied ✓' : 'Copy link to this question'}
@@ -110,7 +113,8 @@ export default function WebBasicsPage() {
               (!needle ||
                 question.title.toLowerCase().includes(needle) ||
                 question.answer.toLowerCase().includes(needle) ||
-                question.remember.toLowerCase().includes(needle)),
+                question.remember.toLowerCase().includes(needle) ||
+                (question.cases ?? []).some(([c, r]) => c.toLowerCase().includes(needle) || r.toLowerCase().includes(needle))),
           ),
       }))
       .filter((section) => section.items.length)

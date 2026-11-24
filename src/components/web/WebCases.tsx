@@ -1,0 +1,42 @@
+import { useState } from 'react'
+import { highlight } from '../atlas/highlight'
+
+/** "More cases": extra examples with their result. Quiz mode hides results until tapped. */
+export function WebCases({ cases, lang }: { cases: [string, string][]; lang: 'js' | 'plain' }) {
+  const [quiz, setQuiz] = useState(false)
+  const [shown, setShown] = useState<Set<number>>(new Set())
+
+  const toggleQuiz = () => {
+    setQuiz((q) => !q)
+    setShown(new Set())
+  }
+  const reveal = (i: number) => setShown((prev) => new Set(prev).add(i))
+
+  return (
+    <section className="cases" aria-label="More cases">
+      <div className="cases-head">
+        <span className="cases-tag">More cases</span>
+        <span className="cases-count">{cases.length}</span>
+        <button type="button" className="chip cases-quiz" aria-pressed={quiz} onClick={toggleQuiz}>
+          {quiz ? 'Show all answers' : 'Quiz me'}
+        </button>
+      </div>
+      <ol className="cases-list">
+        {cases.map(([code, result], i) => (
+          <li key={code}>
+            <code className="cases-code" dangerouslySetInnerHTML={{ __html: highlight(code, lang) }} />
+            {quiz && !shown.has(i) ? (
+              <button type="button" className="cases-reveal" onClick={() => reveal(i)}>
+                Think, then tap to reveal
+              </button>
+            ) : (
+              <p className="cases-res">
+                <span aria-hidden="true">→</span> {result}
+              </p>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
