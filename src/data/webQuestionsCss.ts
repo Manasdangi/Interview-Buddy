@@ -371,7 +371,18 @@ body { background: var(--bg); color: var(--text); }`,
     remember: 'BEM = naming, Modules = build-time scope, CSS-in-JS = styles in JS, Tailwind = utilities in markup.',
     code: `/* BEM */ .card__title--active {}
 /* CSS Modules */ import s from './Card.module.css'; <h3 className={s.title} />
-/* Tailwind */ <h3 className="text-lg font-semibold text-slate-900" />`,
+/* Tailwind */ <h3 className="text-lg font-semibold text-slate-900" />
+
+/* CSS-in-JS: styled-components */
+const Title = styled.h3`
+  font-size: 1.25rem;
+  color: ${(p) => (p.$active ? 'tomato' : '#0f172a')};
+  &:hover { text-decoration: underline; }
+`
+<Title $active>Hello</Title>
+
+/* CSS-in-JS: emotion (css prop) */
+<h3 css={{ fontSize: '1.25rem', color: active ? 'tomato' : '#0f172a', '&:hover': { textDecoration: 'underline' } }}>Hello</h3>`,
     diagram: {
       kind: 'table',
       head: ['approach', 'scoping', 'runtime cost', 'trade-off'],

@@ -239,6 +239,8 @@ export const cssCases: Record<string, [string, string][]> = {
     ['Two teams both use .button', 'Global name clash: BEM prefixes or CSS Modules fix it.'],
     ['Runtime CSS-in-JS in a heavy React list', 'Style recalculation on render; prefer zero-runtime or CSS Modules.'],
     ['Tailwind with long class lists', 'Extract a component, not @apply everywhere.'],
+    ['styled-components: color: ${(p) => p.$active ? "red" : "blue"}', 'Props become CSS at runtime; prefix transient props with $ so they do not reach the DOM.'],
+    ['Server components + runtime CSS-in-JS', 'Needs client components or a registry; zero-runtime tools (vanilla-extract, Panda, Linaria) avoid this.'],
   ],
   'css-nesting': [
     ['.card { .title { } }', 'Works in modern browsers (relaxed nesting).'],
