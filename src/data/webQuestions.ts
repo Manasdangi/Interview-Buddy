@@ -1,9 +1,13 @@
 import type { Diagram } from '../components/web/WebDiagram'
 import type { Demo } from '../components/web/WebDemo'
 import { cssDemos } from './webDemosCss'
+import { cssDemosExtra } from './webDemosCssExtra'
 import { htmlMore } from './webQuestionsHtml'
 import { cssMore } from './webQuestionsCss'
 import { jsMore } from './webQuestionsJs'
+import { htmlExtra } from './webQuestionsExtraHtml'
+import { cssExtra } from './webQuestionsExtraCss'
+import { jsExtra } from './webQuestionsExtraJs'
 
 export type WebTopic = 'html' | 'css' | 'js'
 
@@ -1092,33 +1096,33 @@ module.exports = { double }`,
 /** Sub-topics in display order; questions appear in the order listed. */
 export const webGroups: Record<WebTopic, { name: string; ids: string[] }[]> = {
   html: [
-    { name: 'Markup & semantics', ids: ['semantic-html', 'doctype', 'block-inline-elements', 'head-meta-seo', 'strong-vs-b', 'data-attributes', 'web-components', 'canvas-vs-svg', 'dialog-popover'] },
-    { name: 'Loading & performance', ids: ['url-to-page', 'critical-rendering-path', 'script-async-defer', 'dom-events-load', 'resource-hints', 'responsive-images', 'picture-element', 'http-caching', 'workers'] },
-    { name: 'Forms & accessibility', ids: ['accessibility', 'tabindex', 'forms-validation', 'get-vs-post', 'viewport-meta'] },
-    { name: 'Security & storage', ids: ['storage', 'cookie-security', 'cors', 'csp', 'target-blank', 'iframe-sandbox'] },
+    { name: 'Markup & semantics', ids: ['semantic-html', 'doctype', 'block-inline-elements', 'head-meta-seo', 'strong-vs-b', 'data-attributes', 'web-components', 'canvas-vs-svg', 'dialog-popover', 'id-vs-class', 'html5-features', 'heading-structure', 'html-entities', 'details-summary', 'template-element'] },
+    { name: 'Loading & performance', ids: ['url-to-page', 'critical-rendering-path', 'script-async-defer', 'dom-events-load', 'resource-hints', 'responsive-images', 'picture-element', 'http-caching', 'workers', 'fetchpriority', 'ssr-csr-ssg', 'canonical-robots'] },
+    { name: 'Forms & accessibility', ids: ['accessibility', 'tabindex', 'forms-validation', 'get-vs-post', 'viewport-meta', 'alt-text', 'label-input', 'input-types-autocomplete', 'aria-rules', 'skip-link-focus'] },
+    { name: 'Security & storage', ids: ['storage', 'cookie-security', 'cors', 'csp', 'target-blank', 'iframe-sandbox', 'xss-vs-csrf', 'clickjacking', 'sri', 'https-hsts'] },
   ],
   css: [
-    { name: 'Selectors & cascade', ids: ['specificity', 'cascade-order', 'cascade-layers', 'inheritance', 'combinators', 'nth-child-vs-of-type', 'is-where-has', 'pseudo'] },
-    { name: 'Box model & positioning', ids: ['box-model', 'units', 'hide-element', 'position', 'sticky-not-working', 'stacking-context', 'margin-collapse', 'bfc', 'text-ellipsis', 'object-fit-aspect'] },
-    { name: 'Flexbox & Grid', ids: ['flexbox-axes', 'flex-shorthand', 'grid-vs-flex', 'grid-fr-areas', 'centering'] },
-    { name: 'Responsive design', ids: ['media-queries', 'container-queries', 'clamp', 'reduced-motion'] },
-    { name: 'Theming & architecture', ids: ['css-variables', 'dark-mode', 'css-architecture'] },
-    { name: 'Animation & performance', ids: ['reflow-repaint', 'transform-vs-position', 'transition-vs-animation', 'will-change', 'cls-prevention', 'render-blocking-css'] },
+    { name: 'Selectors & cascade', ids: ['specificity', 'cascade-order', 'cascade-layers', 'inheritance', 'combinators', 'nth-child-vs-of-type', 'is-where-has', 'pseudo', 'attribute-selectors', 'focus-visible'] },
+    { name: 'Box model & positioning', ids: ['box-model', 'units', 'hide-element', 'position', 'sticky-not-working', 'stacking-context', 'margin-collapse', 'bfc', 'text-ellipsis', 'object-fit-aspect', 'float-clearfix', 'overflow', 'inline-block-gap', 'vertical-align', 'pointer-events'] },
+    { name: 'Flexbox & Grid', ids: ['flexbox-axes', 'flex-shorthand', 'grid-vs-flex', 'grid-fr-areas', 'centering', 'flex-wrap-align', 'gap-vs-margin', 'subgrid'] },
+    { name: 'Responsive design', ids: ['media-queries', 'container-queries', 'clamp', 'reduced-motion', 'viewport-units', 'logical-properties', 'scroll-snap'] },
+    { name: 'Theming & architecture', ids: ['css-variables', 'dark-mode', 'css-architecture', 'css-nesting', 'currentcolor'] },
+    { name: 'Animation & performance', ids: ['reflow-repaint', 'transform-vs-position', 'transition-vs-animation', 'will-change', 'cls-prevention', 'render-blocking-css', 'font-display', 'content-visibility', 'transform-order', 'animate-height-auto'] },
   ],
   js: [
-    { name: 'Types & basics', ids: ['data-types', 'var-let-const', 'null-undefined', 'falsy', 'equality', 'type-coercion', 'float-precision', 'optional-chaining', 'spread-rest', 'for-in-of', 'array-methods', 'mutating-array-methods', 'json-gotchas', 'strict-mode'] },
-    { name: 'Scope & closures', ids: ['hoisting', 'scope-chain', 'execution-context', 'closures', 'iife', 'var-loop-timeout'] },
-    { name: 'Functions & this', ids: ['this', 'arrow-functions', 'call-apply-bind', 'higher-order-pure', 'currying', 'compose-pipe'] },
-    { name: 'Objects & prototypes', ids: ['pass-by-value', 'prototype', 'new-keyword', 'classes', 'copy', 'freeze-seal', 'map-set-weakmap', 'symbol-iterator-generator', 'proxy-reflect'] },
-    { name: 'Async & the event loop', ids: ['event-loop', 'promise-states', 'promise-combinators', 'async-await', 'output-puzzle', 'fetch-abort', 'error-handling'] },
-    { name: 'DOM & browser APIs', ids: ['event-delegation', 'custom-events', 'innerhtml-xss', 'intersection-observer', 'history-api', 'raf', 'memory-leaks', 'modules'] },
-    { name: 'Implement it (machine coding)', ids: ['debounce-throttle', 'throttle-impl', 'memoize', 'polyfill-bind', 'polyfill-promise-all', 'polyfill-map-reduce', 'event-emitter'] },
+    { name: 'Types & basics', ids: ['data-types', 'var-let-const', 'null-undefined', 'falsy', 'equality', 'type-coercion', 'float-precision', 'optional-chaining', 'spread-rest', 'for-in-of', 'array-methods', 'mutating-array-methods', 'json-gotchas', 'strict-mode', 'typeof-instanceof', 'short-circuit', 'array-like'] },
+    { name: 'Scope & closures', ids: ['hoisting', 'scope-chain', 'execution-context', 'closures', 'iife', 'var-loop-timeout', 'hoisting-puzzle'] },
+    { name: 'Functions & this', ids: ['this', 'arrow-functions', 'call-apply-bind', 'higher-order-pure', 'currying', 'compose-pipe', 'this-puzzle'] },
+    { name: 'Objects & prototypes', ids: ['pass-by-value', 'prototype', 'new-keyword', 'classes', 'copy', 'freeze-seal', 'map-set-weakmap', 'symbol-iterator-generator', 'proxy-reflect', 'getter-defineproperty', 'object-keys-order'] },
+    { name: 'Async & the event loop', ids: ['event-loop', 'promise-states', 'promise-combinators', 'async-await', 'output-puzzle', 'fetch-abort', 'error-handling', 'callbacks-to-promises', 'settimeout-setinterval', 'async-order-puzzle', 'for-await'] },
+    { name: 'DOM & browser APIs', ids: ['event-delegation', 'custom-events', 'innerhtml-xss', 'intersection-observer', 'history-api', 'raf', 'memory-leaks', 'modules', 'realtime-transports', 'mutation-resize-observer', 'layout-thrashing', 'postmessage'] },
+    { name: 'Implement it (machine coding)', ids: ['debounce-throttle', 'throttle-impl', 'memoize', 'polyfill-bind', 'polyfill-promise-all', 'polyfill-map-reduce', 'event-emitter', 'implement-once', 'implement-classnames', 'implement-flatten', 'implement-deep-clone', 'implement-get-path', 'implement-promisify', 'implement-deep-equal', 'implement-retry', 'implement-promise-pool', 'implement-lru-cache'] },
   ],
 }
 
-const all = [...baseQuestions, ...htmlMore, ...cssMore, ...jsMore]
+const all = [...baseQuestions, ...htmlMore, ...cssMore, ...jsMore, ...htmlExtra, ...cssExtra, ...jsExtra]
 const byId = new Map(all.map((q) => [q.id, q]))
 
 export const webQuestions: WebQuestion[] = (Object.keys(webGroups) as WebTopic[]).flatMap((topic) =>
-  webGroups[topic].flatMap((group) => group.ids.map((id) => ({ ...(byId.get(id) as WebQuestion), group: group.name, demo: cssDemos[id] }))),
+  webGroups[topic].flatMap((group) => group.ids.map((id) => ({ ...(byId.get(id) as WebQuestion), group: group.name, demo: cssDemos[id] ?? cssDemosExtra[id] }))),
 )
