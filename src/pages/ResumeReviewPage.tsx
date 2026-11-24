@@ -10,6 +10,7 @@ import {
 } from '../../shared/resumeReview'
 import { fileToBase64, requestResumeReview } from '../services/resumeApi'
 import { cn } from '../utils/cn'
+import ScanLoader from '../components/resume/ScanLoader'
 
 const card = 'rounded-[1.5rem] border border-slate-800/80 bg-slate-950/90 p-5 shadow-soft sm:p-6'
 const jdPlaceholder = `Paste the job description here...
@@ -301,6 +302,8 @@ export default function ResumeReviewPage() {
 
       {review ? (
         <Report review={review} onReset={() => setReview(null)} />
+      ) : loading ? (
+        <ScanLoader />
       ) : (
         <>
           <div className={cn(card, 'grid gap-5 md:grid-cols-2')}>
