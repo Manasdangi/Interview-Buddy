@@ -1,0 +1,107 @@
+/* Mini resume that gets scanned while the ATS check runs. */
+.scan-paper {
+  position: relative;
+  width: 11rem;
+  height: 14.5rem;
+  padding: 1rem 0.9rem;
+  border-radius: 0.9rem;
+  background: #fff;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  box-shadow: 0 18px 40px -18px rgba(79, 70, 229, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  animation: scan-float 3.2s ease-in-out infinite;
+}
+.dark .scan-paper {
+  background: #0f172a;
+  border-color: rgba(129, 140, 248, 0.35);
+}
+
+.scan-paper__head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+.scan-paper__avatar { width: 1.6rem; height: 1.6rem; border-radius: 999px; background: linear-gradient(135deg, #818cf8, #e879f9); }
+.scan-paper__name { height: 0.55rem; width: 55%; border-radius: 999px; background: #c7d2fe; }
+
+.scan-paper__line {
+  display: block;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--scan-line);
+}
+.scan-paper { --scan-line: #e2e8f0; }
+.dark .scan-paper { --scan-line: #1e293b; }
+.dark .scan-paper__name { background: #3730a3; }
+
+/* Keyword lines light up green, as if matched. */
+.scan-paper__line--kw { animation: scan-match 2.4s ease-in-out infinite; }
+
+.scan-paper__beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2.6rem;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0) 0%, rgba(99, 102, 241, 0.22) 75%, rgba(129, 140, 248, 0.9) 100%);
+  animation: scan-beam 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  pointer-events: none;
+}
+
+.scan-paper__lens {
+  position: absolute;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 999px;
+  border: 3px solid #6366f1;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(0.5px) saturate(1.4);
+  right: 0.6rem;
+  bottom: 0.8rem;
+  animation: scan-lens 4.8s ease-in-out infinite;
+}
+.scan-paper__lens::after {
+  content: '';
+  position: absolute;
+  width: 0.9rem;
+  height: 3px;
+  background: #6366f1;
+  border-radius: 2px;
+  right: -0.75rem;
+  bottom: -0.25rem;
+  transform: rotate(45deg);
+}
+
+.scan-tip { animation: scan-fade 0.4s ease-out; }
+
+@keyframes scan-beam {
+  0% { transform: translateY(-2.6rem); }
+  100% { transform: translateY(14.5rem); }
+}
+@keyframes scan-match {
+  0%, 35% { background: var(--scan-line); box-shadow: none; }
+  50%, 80% { background: #34d399; box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25); }
+  100% { background: var(--scan-line); box-shadow: none; }
+}
+@keyframes scan-lens {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-5.5rem, -4rem); }
+  50% { transform: translate(-2rem, -8.5rem); }
+  75% { transform: translate(-6rem, -1.5rem); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes scan-float {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-6px) rotate(1deg); }
+}
+@keyframes scan-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-paper,
+  .scan-paper__line--kw,
+  .scan-paper__beam,
+  .scan-paper__lens,
+  .scan-tip { animation: none; }
+}
