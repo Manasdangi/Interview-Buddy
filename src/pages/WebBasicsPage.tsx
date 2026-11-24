@@ -13,8 +13,6 @@ type LevelFilter = (typeof levels)[number]
 const isTopic = (value: string | null): value is WebTopic => webTopics.some((topic) => topic.key === value)
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const codeLang = (topic: WebTopic) => (topic === 'js' ? 'js' : 'plain')
-/** Topics whose illustrations play as animations (rolled out topic by topic). */
-const ANIMATED_TOPICS = new Set<WebTopic>(['html', 'css', 'js'])
 
 const REVISED_KEY = 'ib-web-revised'
 type StatusFilter = 'All' | 'To revise' | 'Revised'
@@ -91,7 +89,7 @@ function QuestionCard({ question, no, revised, onToggle }: { question: WebQuesti
       </div>
 
       {question.demo ? <WebDemo demo={question.demo} title={question.title} /> : null}
-      <WebDiagram diagram={question.diagram} animated={ANIMATED_TOPICS.has(question.topic)} />
+      <WebDiagram diagram={question.diagram} />
 
       {question.code ? (
         <div className="codebox">
