@@ -14,7 +14,7 @@ const isTopic = (value: string | null): value is WebTopic => webTopics.some((top
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const codeLang = (topic: WebTopic) => (topic === 'js' ? 'js' : 'plain')
 /** Topics whose illustrations play as animations (rolled out topic by topic). */
-const ANIMATED_TOPICS = new Set<WebTopic>(['js'])
+const ANIMATED_TOPICS = new Set<WebTopic>(['js', 'css'])
 
 function QuestionCard({ question, no }: { question: WebQuestion; no: number }) {
   const [copied, setCopied] = useState<'code' | 'link' | null>(null)
