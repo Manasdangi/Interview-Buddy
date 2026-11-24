@@ -11,7 +11,7 @@ import {
 import { fileToBase64, requestResumeReview } from '../services/resumeApi'
 import { cn } from '../utils/cn'
 
-const card = 'rounded-[1.75rem] border border-slate-800/80 bg-slate-950/90 p-6 shadow-soft sm:p-7'
+const card = 'rounded-[1.5rem] border border-slate-800/80 bg-slate-950/90 p-5 shadow-soft sm:p-6'
 const jdPlaceholder = `Paste the job description here...
 
 Include:
@@ -44,7 +44,7 @@ function Select({ id, value, onChange, placeholder, options }: { id: string; val
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          'w-full appearance-none rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3.5 pr-11 text-base outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30',
+          'w-full appearance-none rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 pr-10 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30',
           value ? 'text-white' : 'text-slate-500',
         )}
       >
@@ -55,7 +55,7 @@ function Select({ id, value, onChange, placeholder, options }: { id: string; val
           </option>
         ))}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+      <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
     </div>
   )
 }
@@ -65,14 +65,14 @@ function ScoreRing({ score }: { score: number }) {
   const c = 2 * Math.PI * r
   const b = band(score)
   return (
-    <div className="relative h-36 w-36 shrink-0">
+    <div className="relative h-28 w-28 shrink-0">
       <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden="true">
         <circle cx="60" cy="60" r={r} fill="none" strokeWidth="10" className="stroke-slate-800" />
         <circle cx="60" cy="60" r={r} fill="none" strokeWidth="10" strokeLinecap="round" stroke={b.ring} strokeDasharray={c} strokeDashoffset={c * (1 - score / 100)} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-semibold text-white">{score}</span>
-        <span className="text-xs uppercase tracking-[0.2em] text-slate-400">ATS score</span>
+        <span className="text-3xl font-semibold text-white">{score}</span>
+        <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">ATS score</span>
       </div>
     </div>
   )
@@ -81,13 +81,13 @@ function ScoreRing({ score }: { score: number }) {
 function Report({ review, onReset }: { review: ResumeReview; onReset: () => void }) {
   const b = band(review.atsScore)
   return (
-    <div className="space-y-6" aria-live="polite">
-      <div className={cn(card, 'flex flex-col gap-6 sm:flex-row sm:items-center')}>
+    <div className="space-y-5" aria-live="polite">
+      <div className={cn(card, 'flex flex-col gap-5 sm:flex-row sm:items-center')}>
         <ScoreRing score={review.atsScore} />
         <div className="min-w-0 flex-1 space-y-2">
           <p className={cn('text-sm font-semibold uppercase tracking-[0.2em]', b.text)}>{b.label}</p>
-          <h2 className="text-2xl font-semibold text-white">{review.verdict}</h2>
-          <p className="text-slate-400">{review.summary}</p>
+          <h2 className="text-xl font-semibold text-white">{review.verdict}</h2>
+          <p className="text-sm text-slate-400">{review.summary}</p>
           {review.jdMatch !== null ? (
             <p className="text-sm text-slate-300">
               Job description match: <span className={cn('font-semibold', band(review.jdMatch).text)}>{review.jdMatch}%</span>
@@ -103,7 +103,7 @@ function Report({ review, onReset }: { review: ResumeReview; onReset: () => void
         </button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <section className={card} aria-labelledby="rr-breakdown">
           <h3 id="rr-breakdown" className="text-lg font-semibold text-white">
             Score breakdown
@@ -113,7 +113,9 @@ function Report({ review, onReset }: { review: ResumeReview; onReset: () => void
               <li key={section.name}>
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="font-medium text-slate-200">{section.name}</span>
-                  <span className={cn('font-mono font-semibold', band(section.score).text)}>{section.score}</span>
+                  <span className={cn('font-mono font-semibold', band(section.score).text)}>
+                    {section.max !== undefined ? `${section.points ?? 0} / ${section.max}` : section.score}
+                  </span>
                 </div>
                 <div className="mt-1.5 h-2 rounded-full bg-slate-800">
                   <div className={cn('h-2 rounded-full', band(section.score).bar)} style={{ width: `${section.score}%` }} />
@@ -122,6 +124,32 @@ function Report({ review, onReset }: { review: ResumeReview; onReset: () => void
               </li>
             ))}
           </ul>
+          {review.checks?.length ? (
+            <>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Formatting checklist</p>
+              <ul className="mt-2 space-y-1.5">
+                {review.checks.map((check) => (
+                  <li key={check.label} className="flex gap-2 text-sm text-slate-300">
+                    {check.ok ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" aria-label="Passed" />
+                    ) : (
+                      <X className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" aria-label="Failed" />
+                    )}
+                    {check.label}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          <details className="mt-5 text-sm text-slate-400">
+            <summary className="cursor-pointer font-medium text-slate-300">How is this score calculated?</summary>
+            <p className="mt-2">
+              The same way match-rate tools like Jobscan work: keywords are taken from the {review.keywordSource === 'role' ? 'typical requirements for your role (paste a job description for a real match)' : 'job description'} and
+              searched for in your resume text, with aliases (JS = JavaScript) and plurals. Hard skills 45 pts, soft skills 10, job title 10, years of
+              experience 10, education 5, formatting &amp; searchability 20. Required skills count double. The points are computed in code, so the same
+              resume and job description always get the same score.
+            </p>
+          </details>
         </section>
 
         <section className={card} aria-labelledby="rr-keywords">
@@ -261,11 +289,11 @@ export default function ResumeReviewPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-5xl space-y-5">
       <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-indigo-300">Resume ATS checker</p>
-        <h1 className="mt-3 text-4xl font-semibold text-white">Will your resume get past the ATS?</h1>
-        <p className="mt-3 max-w-2xl text-slate-400">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">Resume ATS checker</p>
+        <h1 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Will your resume get past the ATS?</h1>
+        <p className="mt-2 max-w-2xl text-sm text-slate-400">
           Upload your resume, pick the role you are aiming for and (optionally) paste the job description. You get an ATS score, missing keywords,
           parsing problems and exact fixes. Your file is only used for this check and is not stored.
         </p>
@@ -275,25 +303,25 @@ export default function ResumeReviewPage() {
         <Report review={review} onReset={() => setReview(null)} />
       ) : (
         <>
-          <div className={cn(card, 'grid gap-6 md:grid-cols-2')}>
-            <div className="space-y-3">
-              <label htmlFor="rr-role" className="flex items-center gap-2 font-semibold text-white">
-                <Briefcase className="h-5 w-5" aria-hidden="true" /> Target Role
+          <div className={cn(card, 'grid gap-5 md:grid-cols-2')}>
+            <div className="space-y-2">
+              <label htmlFor="rr-role" className="flex items-center gap-2 text-sm font-semibold text-white">
+                <Briefcase className="h-4 w-4" aria-hidden="true" /> Target Role
               </label>
               <Select id="rr-role" value={role} onChange={setRole} placeholder="Select Role" options={resumeRoles} />
             </div>
-            <div className="space-y-3">
-              <label htmlFor="rr-exp" className="flex items-center gap-2 font-semibold text-white">
-                <Clock className="h-5 w-5" aria-hidden="true" /> Experience Level
+            <div className="space-y-2">
+              <label htmlFor="rr-exp" className="flex items-center gap-2 text-sm font-semibold text-white">
+                <Clock className="h-4 w-4" aria-hidden="true" /> Experience Level
               </label>
               <Select id="rr-exp" value={experience} onChange={setExperience} placeholder="Select Experience" options={resumeExperienceLevels} />
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-5 lg:grid-cols-2">
             <section className={card} aria-labelledby="rr-resume">
-              <h2 id="rr-resume" className="flex items-center gap-2 text-2xl font-semibold text-white">
-                <FileText className="h-6 w-6" aria-hidden="true" /> Resume
+              <h2 id="rr-resume" className="flex items-center gap-2 text-lg font-semibold text-white">
+                <FileText className="h-5 w-5" aria-hidden="true" /> Resume
               </h2>
               <div
                 role="button"
@@ -308,14 +336,14 @@ export default function ResumeReviewPage() {
                 onDrop={onDrop}
                 aria-label="Upload resume PDF"
                 className={cn(
-                  'mt-5 flex min-h-[16rem] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  'mt-4 flex min-h-[11rem] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                   dragging ? 'border-indigo-400 bg-indigo-500/10' : 'border-slate-800 bg-slate-900/40 hover:border-slate-600',
                 )}
               >
                 <input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
                 {file ? (
                   <>
-                    <FileText className="h-10 w-10 text-indigo-300" aria-hidden="true" />
+                    <FileText className="h-8 w-8 text-indigo-300" aria-hidden="true" />
                     <p className="mt-4 max-w-full truncate font-medium text-white">{file.name}</p>
                     <p className="text-sm text-slate-400">{(file.size / 1024).toFixed(0)} KB · click to replace</p>
                     <button
@@ -332,26 +360,26 @@ export default function ResumeReviewPage() {
                   </>
                 ) : (
                   <>
-                    <Upload className="h-10 w-10 text-indigo-400" aria-hidden="true" />
-                    <p className="mt-5 text-lg font-medium text-white">Drag &amp; drop your resume here</p>
-                    <p className="mt-1 text-slate-400">or click to browse (PDF only, max 3 MB)</p>
+                    <Upload className="h-8 w-8 text-indigo-400" aria-hidden="true" />
+                    <p className="mt-3 text-base font-medium text-white">Drag &amp; drop your resume here</p>
+                    <p className="mt-1 text-sm text-slate-400">or click to browse (PDF only, max 3 MB)</p>
                   </>
                 )}
               </div>
             </section>
 
             <section className={card} aria-labelledby="rr-jd">
-              <h2 id="rr-jd" className="flex items-center gap-2 text-2xl font-semibold text-white">
-                <Briefcase className="h-6 w-6" aria-hidden="true" /> Job Description <span className="text-base font-normal text-slate-400">(Optional)</span>
+              <h2 id="rr-jd" className="flex items-center gap-2 text-lg font-semibold text-white">
+                <Briefcase className="h-5 w-5" aria-hidden="true" /> Job Description <span className="text-sm font-normal text-slate-400">(Optional)</span>
               </h2>
               <textarea
                 value={jd}
                 onChange={(e) => setJd(e.target.value.slice(0, maxJobDescriptionLength))}
                 placeholder={jdPlaceholder}
                 aria-labelledby="rr-jd"
-                className="mt-5 h-64 w-full resize-y rounded-2xl border border-slate-800 bg-slate-950 p-4 text-base text-white placeholder:text-slate-500 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30"
+                className="mt-4 h-44 w-full resize-y rounded-2xl border border-slate-800 bg-slate-950 p-3.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30"
               />
-              <p className="mt-2 text-right text-sm text-slate-500">
+              <p className="mt-1.5 text-right text-xs text-slate-500">
                 {jd.length.toLocaleString()} / {maxJobDescriptionLength.toLocaleString()} characters
               </p>
             </section>
@@ -367,12 +395,12 @@ export default function ResumeReviewPage() {
             type="button"
             onClick={analyze}
             disabled={!ready}
-            className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-6 py-4 text-lg font-semibold text-pure shadow-soft transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-6 py-3 text-base font-semibold text-pure shadow-soft transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Zap className="h-5 w-5" aria-hidden="true" />}
             {loading ? 'Analyzing your resume… (about 20–40 s)' : 'Analyze Resume'}
           </button>
-          {!role || !experience || !file ? <p className="-mt-4 text-center text-sm text-slate-500">Pick a role and experience level and upload your PDF to start.</p> : null}
+          {!role || !experience || !file ? <p className="-mt-3 text-center text-xs text-slate-500">Pick a role and experience level and upload your PDF to start.</p> : null}
         </>
       )}
     </div>

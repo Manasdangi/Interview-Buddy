@@ -26,7 +26,9 @@ export const resumeExperienceLevels = [
 export const maxResumeBytes = 3 * 1024 * 1024
 export const maxJobDescriptionLength = 12_000
 
-export type ResumeSectionScore = { name: string; score: number; feedback: string }
+/** One part of the score. `score` is 0–100 within the part; `points` out of `max` is what it adds to the total. */
+export type ResumeSectionScore = { name: string; score: number; feedback: string; points?: number; max?: number }
+export type ResumeCheck = { label: string; ok: boolean }
 export type ResumeImprovement = { priority: 'high' | 'medium' | 'low'; issue: string; fix: string }
 export type ResumeRewrite = { before: string; after: string }
 
@@ -42,4 +44,8 @@ export type ResumeReview = {
   strengths: string[]
   improvements: ResumeImprovement[]
   rewrites: ResumeRewrite[]
+  /** Formatting and searchability checks run in code on the resume text. */
+  checks?: ResumeCheck[]
+  /** Where the keywords came from. */
+  keywordSource?: 'job description' | 'role'
 }

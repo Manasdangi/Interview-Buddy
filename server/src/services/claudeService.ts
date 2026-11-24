@@ -8,6 +8,8 @@ const DEFAULT_MODEL = 'claude-sonnet-5-5'
 const TEXT_TIMEOUT_MS = 25_000
 // The report writes an ideal answer per question, which takes noticeably longer than a chat turn.
 const REPORT_TIMEOUT_MS = 50_000
+/** The resume call returns the resume text too, so it gets most of Vercel's 60 s function limit. */
+const PDF_TIMEOUT_MS = 56_000
 const TEXT_MAX_TOKENS = 1_024
 const REPORT_MAX_TOKENS = 6_000
 const MAX_RETRIES = 1
@@ -31,6 +33,7 @@ type ClaudePayload = {
   tools?: Array<{ name: string; description: string; input_schema: JsonSchema; eager_input_streaming?: boolean }>
   tool_choice?: { type: 'auto' }
   stream?: boolean
+  temperature?: number
 }
 
 type StreamEvent = {
@@ -285,8 +288,10 @@ export async function generateJson(systemPrompt: string, userPrompt: string, sch
  * Like generateJson, but sends a PDF alongside the prompt; Claude reads the document natively
  * (text and layout), so no PDF parsing is needed on our side.
  */
-export async function generateJsonFromPdf(systemPrompt: string, pdfBase64: string, userPrompt: string, schema: JsonSchema) {
-  const payload = buildPayload(systemPrompt, userPrompt, REPORT_MAX_TOKENS, schema)
+export async function generateJsonFromPdf(systemPrompt: string, pdfBase64: string, userPrompt: string, schema: JsonSchema, maxTokens = REPORT_MAX_TOKENS) {
+  const payload = buildPayload(systemPrompt, userPrompt, maxTokens, schema)
+  // Temperature 0 so the same resume and job description give the same extraction (and so the same score).
+  payload.temperature = 0
   payload.messages = [
     {
       role: 'user',
@@ -296,7 +301,7 @@ export async function generateJsonFromPdf(systemPrompt: string, pdfBase64: strin
       ],
     },
   ]
-  const data = await callClaude(payload, 'Claude could not review the resume.', REPORT_TIMEOUT_MS)
+  const data = await callClaude(payload, 'Claude could not review the resume.', PDF_TIMEOUT_MS)
   if (data.stop_reason === 'max_tokens') {
     throw new HttpError(502, 'The review was cut off. Please retry.')
   }
