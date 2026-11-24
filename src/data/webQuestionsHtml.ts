@@ -150,6 +150,18 @@ Content-Security-Policy: frame-ancestors 'self'`,
     answer:
       'SVG is vector markup: every shape is a DOM node you can style, animate and attach events to, and it stays sharp at any zoom — great for icons, logos and charts with few elements. Canvas is a bitmap you draw on with JS: no DOM per shape, so it scales to thousands of moving objects (games, heavy charts) but you handle hit-testing and accessibility yourself.',
     remember: 'SVG = shapes in the DOM. Canvas = pixels you paint.',
+    code: `<!-- Canvas: pixels, draw with JS -->
+<canvas id="c" width="200" height="100"></canvas>
+<script>
+  const ctx = c.getContext('2d')
+  ctx.fillStyle = 'tomato'
+  ctx.fillRect(10, 10, 80, 40)   // one bitmap; shapes are not objects
+</script>
+
+<!-- SVG: DOM nodes, style and listen like any element -->
+<svg width="200" height="100">
+  <rect x="10" y="10" width="80" height="40" fill="tomato" />
+</svg>`,
     diagram: {
       kind: 'compare',
       left: { title: 'SVG', tone: 'emerald', items: ['vector, crisp at any size', 'each shape is a DOM node', 'CSS + events per shape', 'slows with 1000s of nodes'] },
@@ -346,6 +358,18 @@ ETag: "v42"`,
     answer:
       'GET reads data: parameters go in the URL, it is cacheable, bookmarkable and should have no side effects. POST sends data in the body to create or trigger something; it isn\'t cached and repeating it may duplicate the action. PUT replaces, PATCH partly updates, DELETE removes. GET, PUT and DELETE are idempotent; POST is not.',
     remember: 'GET = read (URL), POST = do something (body). Idempotent = safe to retry.',
+    code: `// GET: read data, parameters in the URL, cacheable
+const res = await fetch('/api/users?page=2')
+
+// POST: create / send a body, not cached, not idempotent
+await fetch('/api/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'Asha' }),
+})
+
+// PUT replaces, PATCH updates part, DELETE removes
+await fetch('/api/users/7', { method: 'PATCH', body: JSON.stringify({ name: 'Ravi' }) })`,
     diagram: {
       kind: 'table',
       head: ['method', 'purpose', 'body', 'idempotent', 'cacheable'],

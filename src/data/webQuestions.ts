@@ -2,9 +2,6 @@ import type { Diagram } from '../components/web/WebDiagram'
 import type { Demo } from '../components/web/WebDemo'
 import { cssDemos } from './webDemosCss'
 import { cssDemosExtra } from './webDemosCssExtra'
-import { htmlCases } from './webCasesHtml'
-import { cssCases } from './webCasesCss'
-import { jsCases } from './webCasesJs'
 import { htmlMore } from './webQuestionsHtml'
 import { cssMore } from './webQuestionsCss'
 import { jsMore } from './webQuestionsJs'
@@ -28,8 +25,6 @@ export type WebQuestion = {
   group?: string
   /** live, editable-by-tabs preview (CSS questions), filled in from cssDemos */
   demo?: Demo
-  /** extra examples: [code or scenario, result], filled in from the *Cases files */
-  cases?: [string, string][]
 }
 
 export const webTopics: { key: WebTopic; name: string; tagline: string }[] = [
@@ -358,7 +353,10 @@ nav ul li a       /* 0-0-4 */`,
     remember: 'absolute looks UP for the nearest positioned parent; fixed looks at the screen.',
     code: `.card   { position: relative; }
 .badge  { position: absolute; top: 8px; right: 8px; }
-.header { position: sticky; top: 0; }`,
+.header { position: sticky; top: 0; }
+
+.toast  { position: fixed; bottom: 16px; right: 16px; }  /* stays on screen while scrolling */
+.hero   { position: static; }                              /* default: top/left/z-index ignored */`,
     diagram: {
       kind: 'table',
       head: ['position', 'in flow?', 'offset relative to', 'scrolls?'],
@@ -763,7 +761,9 @@ console.log('D')
     remember: 'all = everyone or nothing, allSettled = report card, race = first to finish, any = first to succeed.',
     code: `const [user, posts] = await Promise.all([getUser(), getPosts()])
 const results = await Promise.allSettled(tasks)
-const fastest = await Promise.race([fetchData(), timeout(3000)])`,
+const fastest = await Promise.race([fetchData(), timeout(3000)])
+
+const first = await Promise.any([mirror1(), mirror2()])  // first success; AggregateError if all fail`,
     diagram: {
       kind: 'table',
       head: ['', 'resolves when', 'rejects when'],
@@ -884,7 +884,9 @@ const s = { ...a }
 s.user.name = 'Ravi'
 a.user.name  // 'Ravi' 😬 shared
 
-const d = structuredClone(a)  // fully independent`,
+const d = structuredClone(a)  // fully independent
+
+const j = JSON.parse(JSON.stringify(a))  // deep copy, but drops functions, undefined, Date -> string`,
     diagram: {
       kind: 'compare',
       left: { title: 'shallow  {...a}', tone: 'amber', items: ['new outer object', 'a.user and s.user → SAME object', 'change one, both change'] },
@@ -1125,10 +1127,9 @@ export const webGroups: Record<WebTopic, { name: string; ids: string[] }[]> = {
   ],
 }
 
-const allCases: Record<string, [string, string][]> = { ...htmlCases, ...cssCases, ...jsCases }
 const all = [...baseQuestions, ...htmlMore, ...cssMore, ...jsMore, ...htmlExtra, ...cssExtra, ...jsExtra]
 const byId = new Map(all.map((q) => [q.id, q]))
 
 export const webQuestions: WebQuestion[] = (Object.keys(webGroups) as WebTopic[]).flatMap((topic) =>
-  webGroups[topic].flatMap((group) => group.ids.map((id) => ({ ...(byId.get(id) as WebQuestion), group: group.name, demo: cssDemos[id] ?? cssDemosExtra[id], cases: allCases[id] }))),
+  webGroups[topic].flatMap((group) => group.ids.map((id) => ({ ...(byId.get(id) as WebQuestion), group: group.name, demo: cssDemos[id] ?? cssDemosExtra[id] }))),
 )

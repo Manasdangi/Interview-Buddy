@@ -300,7 +300,17 @@ es.onmessage = (e) => show(JSON.parse(e.data))
 
 const ws = new WebSocket('wss://chat.example.com')
 ws.onmessage = (e) => addMessage(e.data)
-ws.send(JSON.stringify({ text: 'hi' }))`,
+ws.send(JSON.stringify({ text: 'hi' }))
+
+// short polling: ask every 5 s
+setInterval(async () => render(await (await fetch('/api/status')).json()), 5000)
+
+// long polling: server holds the request open until there is news
+async function poll() {
+  const res = await fetch('/api/events?since=' + last)   // waits up to ~30 s
+  handle(await res.json())
+  poll()                                                 // immediately ask again
+}`,
     diagram: {
       kind: 'table',
       head: ['', 'direction', 'connection', 'use for'],
@@ -351,7 +361,14 @@ items.forEach((el) => { el.style.width = el.offsetWidth + 10 + 'px' })
 
 // ✅ read everything, then write
 const widths = items.map((el) => el.offsetWidth)
-items.forEach((el, i) => { el.style.width = widths[i] + 10 + 'px' })`,
+items.forEach((el, i) => { el.style.width = widths[i] + 10 + 'px' })
+
+// batch writes in the next frame
+requestAnimationFrame(() => {
+  items.forEach((el, i) => { el.style.width = widths[i] + 10 + 'px' })
+})
+// getBoundingClientRect() forces layout too
+const { height } = el.getBoundingClientRect()`,
     diagram: {
       kind: 'compare',
       left: { title: 'thrashing', tone: 'rose', items: ['write width', 'read offsetWidth → layout!', 'write, read → layout!', '× every item'] },

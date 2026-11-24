@@ -276,7 +276,10 @@ form:has(input:invalid) button { opacity: .5; }`,
     code: `.card-wrap { container-type: inline-size; }
 @container (min-width: 420px) {
   .card { display: grid; grid-template-columns: 120px 1fr; }
-}`,
+}
+
+/* media query: depends on the VIEWPORT */
+@media (min-width: 768px) { .card { display: grid; } }`,
     diagram: {
       kind: 'compare',
       left: { title: '@media', tone: 'indigo', items: ['looks at the viewport', 'page-level layout'] },
@@ -374,11 +377,11 @@ body { background: var(--bg); color: var(--text); }`,
 /* Tailwind */ <h3 className="text-lg font-semibold text-slate-900" />
 
 /* CSS-in-JS: styled-components */
-const Title = styled.h3`
+const Title = styled.h3\`
   font-size: 1.25rem;
-  color: ${(p) => (p.$active ? 'tomato' : '#0f172a')};
+  color: \${(p) => (p.$active ? 'tomato' : '#0f172a')};
   &:hover { text-decoration: underline; }
-`
+\`
 <Title $active>Hello</Title>
 
 /* CSS-in-JS: emotion (css prop) */

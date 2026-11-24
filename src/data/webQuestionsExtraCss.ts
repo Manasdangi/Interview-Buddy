@@ -79,7 +79,11 @@ button:focus-visible { outline: 3px solid #4f46e5; outline-offset: 2px; }
       'overflow decides what happens to content bigger than its box. visible (default) lets it spill out; hidden cuts it off but still lets JS scroll it; clip cuts it off with no scrolling at all and does not create a scroll container (so sticky inside still works); scroll always shows scrollbars; auto shows them only when needed. Any value other than visible/clip creates a scroll container and a new BFC.',
     remember: 'auto is what you usually want; hidden/scroll break position: sticky inside.',
     code: `.panel { max-height: 300px; overflow-y: auto; }
-.card  { overflow: clip; border-radius: 12px; } /* clip the image corners */`,
+.card  { overflow: clip; border-radius: 12px; } /* clip the image corners */
+
+.a { overflow: hidden; }   /* clips, no scrollbar, still scrollable by JS */
+.b { overflow: scroll; }   /* always shows scrollbars */
+.c { overflow: visible; }  /* default: content spills out */`,
     diagram: {
       kind: 'table',
       head: ['value', 'extra content', 'scrollbar', 'scroll container'],

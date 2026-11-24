@@ -4,7 +4,6 @@ import { AtlasShell } from '../components/atlas/AtlasShell'
 import { highlight } from '../components/atlas/highlight'
 import { WebDiagram } from '../components/web/WebDiagram'
 import { WebDemo } from '../components/web/WebDemo'
-import { WebCases } from '../components/web/WebCases'
 import { webGroups, webQuestions, webTopics, type WebQuestion, type WebTopic } from '../data/webQuestions'
 
 const levels = ['All levels', 'Basic', 'Core', 'Advanced'] as const
@@ -53,7 +52,7 @@ function useRevised() {
 }
 
 const haystack = (q: WebQuestion) =>
-  [q.title, q.answer, q.remember, q.group, q.id.replace(/-/g, ' '), ...(q.points ?? []), q.code ?? '', ...(q.cases ?? []).flat()].join(' \n ').toLowerCase()
+  [q.title, q.answer, q.remember, q.group, q.id.replace(/-/g, ' '), ...(q.points ?? []), q.code ?? ''].join(' \n ').toLowerCase()
 const haystacks = new Map<string, string>(webQuestions.map((q) => [q.id, haystack(q)]))
 
 function QuestionCard({ question, no, revised, onToggle }: { question: WebQuestion; no: number; revised: boolean; onToggle: () => void }) {
@@ -114,8 +113,6 @@ function QuestionCard({ question, no, revised, onToggle }: { question: WebQuesti
           </pre>
         </div>
       ) : null}
-
-      {question.cases?.length ? <WebCases cases={question.cases} lang={codeLang(question.topic)} /> : null}
 
       <div className="card-foot">
         <button type="button" className="foot-link" onClick={() => copy('link')}>

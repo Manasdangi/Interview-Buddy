@@ -174,6 +174,21 @@ for (const user of users) {
     answer:
       'CSR: the server sends an almost empty HTML and JavaScript builds the page in the browser — slow first paint and weaker SEO, but cheap servers. SSR: the server renders HTML for every request, so content shows fast, then JavaScript hydrates it (attaches event handlers) to make it interactive. SSG: HTML is built once at build time and served from a CDN — fastest, but only for content that does not change per request. ISR re-builds static pages in the background.',
     remember: 'CSR = browser cooks. SSR = kitchen cooks per order. SSG = cooked in advance and kept warm.',
+    code: `// CSR: the browser fetches data after the page loads
+function Page() {
+  const [data, setData] = useState(null)
+  useEffect(() => { fetch('/api/post').then(r => r.json()).then(setData) }, [])
+  return data ? <Post {...data} /> : <Spinner />
+}
+
+// SSR (Next.js): HTML built on every request
+export async function getServerSideProps() { return { props: { post: await getPost() } } }
+
+// SSG: HTML built once at deploy time
+export async function getStaticProps() { return { props: { post: await getPost() }, revalidate: 60 } }  // 60 = ISR
+
+// hydration: React attaches event handlers to the server HTML
+hydrateRoot(document.getElementById('root'), <App />)`,
     diagram: {
       kind: 'table',
       head: ['', 'HTML made', 'first paint', 'SEO', 'good for'],
@@ -336,6 +351,12 @@ dialog.addEventListener('close', () => opener.focus())`,
     answer:
       'XSS (cross-site scripting): an attacker gets THEIR script to run on YOUR site, usually through unescaped user input, and can then read the page, steal tokens and act as the user. Defend by escaping output (textContent, framework escaping), avoiding innerHTML/dangerouslySetInnerHTML, sanitising rich text and adding a CSP. CSRF (cross-site request forgery): another site makes the user\'s browser send a request to your site with their cookies. Defend with SameSite cookies, CSRF tokens and checking the Origin header.',
     remember: 'XSS = bad code runs on your site. CSRF = your site trusts a request the user never meant to send.',
+    code: `// XSS defence: treat user text as text
+el.textContent = comment            // never el.innerHTML = comment
+
+// CSRF defence: cookie that is not sent cross-site + a per-session token
+Set-Cookie: sid=abc; HttpOnly; Secure; SameSite=Lax
+fetch('/transfer', { method: 'POST', headers: { 'X-CSRF-Token': token }, credentials: 'include' })`,
     diagram: {
       kind: 'compare',
       left: { title: 'XSS', tone: 'rose', items: ['attacker script runs in your page', 'cause: unescaped input', 'fix: escape, sanitise, CSP', 'HttpOnly limits cookie theft'] },

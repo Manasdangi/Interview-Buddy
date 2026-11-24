@@ -336,7 +336,13 @@ class Savings extends Account {
     remember: 'const locks the name, seal locks the shape, freeze locks the values (one level).',
     code: `const cfg = Object.freeze({ api: '/v1', nested: { a: 1 } })
 cfg.api = '/v2'      // ignored (throws in strict mode)
-cfg.nested.a = 2     // works — freeze is shallow`,
+cfg.nested.a = 2     // works — freeze is shallow
+
+const s = Object.seal({ a: 1 })
+s.a = 2          // ok — values stay writable
+s.b = 3          // ignored — cannot add
+delete s.a       // ignored — cannot delete
+Object.isFrozen(cfg)  // true`,
     diagram: {
       kind: 'table',
       head: ['', 'reassign var', 'add / delete props', 'change values'],
@@ -612,7 +618,12 @@ window.addEventListener('popstate', () => render(location.pathname))`,
     code: `form.addEventListener('submit', (e) => { e.preventDefault(); save() })
 
 el.dispatchEvent(new CustomEvent('cart:add', { detail: { id: 7 }, bubbles: true }))
-document.addEventListener('cart:add', (e) => console.log(e.detail.id))`,
+document.addEventListener('cart:add', (e) => console.log(e.detail.id))
+
+// stopPropagation: the click never reaches parents
+button.addEventListener('click', (e) => e.stopPropagation())
+// stopImmediatePropagation: also skips other listeners on the same element
+link.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation() })`,
     diagram: {
       kind: 'table',
       head: ['', 'default action', 'bubbling to parents'],
