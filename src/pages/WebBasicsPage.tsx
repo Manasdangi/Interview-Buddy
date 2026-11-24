@@ -13,6 +13,16 @@ type LevelFilter = (typeof levels)[number]
 const isTopic = (value: string | null): value is WebTopic => webTopics.some((topic) => topic.key === value)
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const codeLang = (topic: WebTopic) => (topic === 'js' ? 'js' : 'plain')
+/** Only pictures where something really moves over time play as animations. Every timeline does, plus flows that
+ *  travel step to step. Lanes, comparisons, nesting, ladders and tables stay still. */
+const ANIMATED_IDS = new Set([
+  // request / loading / protocol flows
+  'url-to-page', 'critical-rendering-path', 'http-caching', 'cors', 'csp', 'https-hsts', 'sri',
+  // runtime flows
+  'hoisting', 'new-keyword', 'prototype', 'promise-states', 'history-api', 'intersection-observer', 'postmessage',
+  'currying', 'array-methods', 'compose-pipe', 'memoize', 'implement-once', 'implement-promisify', 'implement-lru-cache', 'skip-link-focus',
+])
+const isAnimated = (q: WebQuestion) => q.diagram.kind === 'timeline' || ANIMATED_IDS.has(q.id)
 
 const REVISED_KEY = 'ib-web-revised'
 type StatusFilter = 'All' | 'To revise' | 'Revised'
@@ -89,7 +99,7 @@ function QuestionCard({ question, no, revised, onToggle }: { question: WebQuesti
       </div>
 
       {question.demo ? <WebDemo demo={question.demo} title={question.title} /> : null}
-      <WebDiagram diagram={question.diagram} />
+      <WebDiagram diagram={question.diagram} animated={isAnimated(question)} />
 
       {question.code ? (
         <div className="codebox">
