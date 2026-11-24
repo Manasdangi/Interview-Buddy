@@ -1,5 +1,4 @@
 import { Fragment, type ReactElement } from 'react'
-import { AnimatedDiagram } from './AnimatedDiagram'
 
 export type Tone = 'indigo' | 'emerald' | 'amber' | 'rose' | 'cyan' | 'fuchsia' | 'slate'
 
@@ -158,8 +157,7 @@ function body(diagram: Diagram): ReactElement {
   }
 }
 
-export function WebDiagram({ diagram, animated = false }: { diagram: Diagram; animated?: boolean }) {
-  if (animated) return <AnimatedDiagram diagram={diagram} />
+export function WebDiagram({ diagram }: { diagram: Diagram }) {
   return (
     <figure className="viz wd" aria-label="Illustration">
       {body(diagram)}
