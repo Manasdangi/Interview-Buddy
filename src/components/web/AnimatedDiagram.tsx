@@ -85,11 +85,22 @@ function usePlayer(count: number) {
   const [t, setT] = useState(() => (prefersReducedMotion() ? count : 0))
   const [playing, setPlaying] = useState(() => !prefersReducedMotion())
   const [visible, setVisible] = useState(false)
+  const playingRef = useRef(playing)
+  useEffect(() => {
+    playingRef.current = playing
+  }, [playing])
 
+  // Each time the figure scrolls into focus it starts again from the first step.
   useEffect(() => {
     const el = ref.current
     if (!el || typeof IntersectionObserver === 'undefined') return
-    const io = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.35 })
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        setVisible(entry.isIntersecting)
+        if (entry.isIntersecting && playingRef.current && !prefersReducedMotion()) setT(0)
+      },
+      { threshold: 0.4 },
+    )
     io.observe(el)
     return () => io.disconnect()
   }, [])
