@@ -2,6 +2,9 @@ import type { Diagram } from '../components/web/WebDiagram'
 import type { Demo } from '../components/web/WebDemo'
 import { cssDemos } from './webDemosCss'
 import { cssDemosExtra } from './webDemosCssExtra'
+import { htmlCases } from './webCasesHtml'
+import { cssCases } from './webCasesCss'
+import { jsCases } from './webCasesJs'
 import { htmlMore } from './webQuestionsHtml'
 import { cssMore } from './webQuestionsCss'
 import { jsMore } from './webQuestionsJs'
@@ -25,6 +28,8 @@ export type WebQuestion = {
   group?: string
   /** live, editable-by-tabs preview (CSS questions), filled in from cssDemos */
   demo?: Demo
+  /** extra examples: [code or scenario, result], filled in from the *Cases files */
+  cases?: [string, string][]
 }
 
 export const webTopics: { key: WebTopic; name: string; tagline: string }[] = [
@@ -1120,9 +1125,10 @@ export const webGroups: Record<WebTopic, { name: string; ids: string[] }[]> = {
   ],
 }
 
+const allCases: Record<string, [string, string][]> = { ...htmlCases, ...cssCases, ...jsCases }
 const all = [...baseQuestions, ...htmlMore, ...cssMore, ...jsMore, ...htmlExtra, ...cssExtra, ...jsExtra]
 const byId = new Map(all.map((q) => [q.id, q]))
 
 export const webQuestions: WebQuestion[] = (Object.keys(webGroups) as WebTopic[]).flatMap((topic) =>
-  webGroups[topic].flatMap((group) => group.ids.map((id) => ({ ...(byId.get(id) as WebQuestion), group: group.name, demo: cssDemos[id] ?? cssDemosExtra[id] }))),
+  webGroups[topic].flatMap((group) => group.ids.map((id) => ({ ...(byId.get(id) as WebQuestion), group: group.name, demo: cssDemos[id] ?? cssDemosExtra[id], cases: allCases[id] }))),
 )
