@@ -33,7 +33,6 @@ type ClaudePayload = {
   tools?: Array<{ name: string; description: string; input_schema: JsonSchema; eager_input_streaming?: boolean }>
   tool_choice?: { type: 'auto' }
   stream?: boolean
-  temperature?: number
 }
 
 type StreamEvent = {
@@ -290,8 +289,6 @@ export async function generateJson(systemPrompt: string, userPrompt: string, sch
  */
 export async function generateJsonFromPdf(systemPrompt: string, pdfBase64: string, userPrompt: string, schema: JsonSchema, maxTokens = REPORT_MAX_TOKENS) {
   const payload = buildPayload(systemPrompt, userPrompt, maxTokens, schema)
-  // Temperature 0 so the same resume and job description give the same extraction (and so the same score).
-  payload.temperature = 0
   payload.messages = [
     {
       role: 'user',
