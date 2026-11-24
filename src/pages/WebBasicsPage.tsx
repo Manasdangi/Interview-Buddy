@@ -14,7 +14,7 @@ const isTopic = (value: string | null): value is WebTopic => webTopics.some((top
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const codeLang = (topic: WebTopic) => (topic === 'js' ? 'js' : 'plain')
 /** Topics whose illustrations play as animations (rolled out topic by topic). */
-const ANIMATED_TOPICS = new Set<WebTopic>(['js', 'css'])
+const ANIMATED_TOPICS = new Set<WebTopic>(['html', 'css', 'js'])
 
 const REVISED_KEY = 'ib-web-revised'
 type StatusFilter = 'All' | 'To revise' | 'Revised'
