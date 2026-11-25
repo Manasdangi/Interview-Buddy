@@ -10,7 +10,7 @@ router.get('/', (req: Request, res: Response) => {
   )
 })
 
-router.post('/visit', (req: Request, res: Response) => {
+router.post('/', (req: Request, res: Response) => {
   void runHandler(siteVisit, { params: req.params, body: req.body, headers: flattenValues(req.headers, true), ip: req.ip }).then((result) =>
     res.status(result.status).json(result.body),
   )

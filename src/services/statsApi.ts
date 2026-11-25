@@ -36,7 +36,7 @@ async function parse(response: Response) {
 export async function loadSiteStats(): Promise<SiteStats> {
   if (alreadyCounted()) return parse(await fetch(`${baseURL}/stats`))
   return parse(
-    await fetch(`${baseURL}/stats/visit`, {
+    await fetch(`${baseURL}/stats`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ visitorId: getVisitorId() }),
