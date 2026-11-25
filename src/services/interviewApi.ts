@@ -151,16 +151,6 @@ export const openSpeechStream = (sessionId: string, text: string, signal: AbortS
   })
 }
 
-/** Natural Indian-English interviewer voice for one sentence; returns base64 WAV audio. */
-export const synthesizeSpeech = async (sessionId: string, text: string) => {
-  const response = await client.post<{ audioBase64: string; mimeType: string }>(
-    '/interviews/speech',
-    { sessionId, text },
-    { headers: sessionHeaders(sessionId) },
-  )
-  return response.data
-}
-
 export const completeInterview = async (sessionId: string) => {
   const response = await client.post<{ scorecard: InterviewScorecard; session: InterviewSession; summary?: InterviewSummary | null }>(
     `/interviews/${sessionId}/complete`,
