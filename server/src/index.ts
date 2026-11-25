@@ -4,6 +4,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import interviewRoutes from './routes/interviewRoutes.js'
 import resumeRoutes from './routes/resumeRoutes.js'
+import statsRoutes from './routes/statsRoutes.js'
 
 dotenv.config()
 
@@ -18,6 +19,7 @@ app.use(cors({ origin: allowedOrigins }))
 app.use(express.json({ limit: '5mb' }))
 app.use('/api/interviews', interviewRoutes)
 app.use('/api/resume', resumeRoutes)
+app.use('/api/stats', statsRoutes)
 
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' })

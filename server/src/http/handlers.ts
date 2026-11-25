@@ -14,6 +14,7 @@ import { maxSpeechTextLength, streamSpeech } from '../services/speechService.js'
 import { listSummariesForUser, saveCompletedSummary, saveQuitSummary } from '../services/interviewSummaryService.js'
 import { enforceRateLimit } from './rateLimit.js'
 import { reviewResume } from '../services/resumeReviewService.js'
+import { getSiteStats, recordSiteVisit } from '../services/siteStatsService.js'
 
 /** Framework-neutral request shape shared by the Express server and the Vercel functions. */
 export type ApiRequest = {
@@ -180,4 +181,11 @@ export const resumeReview: ApiHandler = async (req) => {
   enforceRateLimit(`resume:${uid ?? req.ip ?? 'unknown'}`, 10, hourMs)
   const review = await reviewResume(getBody(req))
   return { status: 200, body: { review } }
+}
+
+export const siteStats: ApiHandler = async () => ({ status: 200, body: await getSiteStats() })
+
+export const siteVisit: ApiHandler = async (req) => {
+  enforceRateLimit(`visit:${req.ip ?? 'unknown'}`, 60, hourMs)
+  return { status: 200, body: await recordSiteVisit(getBody(req).visitorId) }
 }
