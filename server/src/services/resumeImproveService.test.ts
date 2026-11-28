@@ -36,6 +36,40 @@ describe('isSafeEdit', () => {
   })
 })
 
+describe('extra points', () => {
+  const notes = 'Acme Labs checkout: 19 tickets, 72 SP, 57 commits (34 and 17 commits). Rebuilt Payments in GraphQL, cut load time by 30%.'
+  const withNotes = { ...facts, notes }
+  const replacement = 'Rebuilt Payments in GraphQL for 40 internal teams, cutting load time by 30%.'
+
+  it('allows facts from the points and, when replacing, drops old keywords', () => {
+    expect(isSafeEdit(bullet, replacement, withNotes, true)).toBe(true)
+    expect(isSafeEdit(bullet, replacement, withNotes, false)).toBe(false)
+    expect(isSafeEdit(bullet, replacement, facts, true)).toBe(false)
+  })
+
+  it.each([
+    ['ticket counts', 'Delivered 19 tickets rebuilding Payments in GraphQL for 40 internal teams.'],
+    ['story points as another figure', 'Rebuilt Payments in GraphQL and cut load time by 72 for 40 internal teams.'],
+    ['commit counts as another figure', 'Rebuilt Payments in GraphQL for 34 internal teams, cutting load time by 30%.'],
+    ['a made-up percentage', 'Rebuilt Payments in GraphQL for 40 internal teams, cutting load time by 40%.'],
+    ['a lost metric', 'Rebuilt Payments in GraphQL for the internal teams, with much faster screens.'],
+  ])('rejects %s', (_label, rewrite) => {
+    expect(isSafeEdit(bullet, rewrite, withNotes, true)).toBe(false)
+  })
+
+  it('never removes the last mention of a matched keyword', () => {
+    const raw = JSON.stringify({ edits: [{ id: 1, text: replacement, replaces: true }], todo: [] })
+    const once = { ...withNotes, resumeText: `Asha Verma\n${bullet.text}` }
+    expect(parseResumeEdits(raw, [bullet], once).edits).toEqual([])
+    expect(parseResumeEdits(raw, [bullet], withNotes).edits).toEqual([{ id: 1, text: replacement, replaces: true }])
+  })
+
+  it('limits their length', () => {
+    const input = { role: 'Frontend Engineer', resumeText: 'x'.repeat(300), paragraphs: [bullet], notes: 'a'.repeat(15_001) }
+    expect(() => validateImproveInput(input)).toThrow('too long')
+  })
+})
+
 describe('parseResumeEdits', () => {
   it('keeps safe edits, ignores unknown or unchanged ones and reports rejections', () => {
     const raw = JSON.stringify({

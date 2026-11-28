@@ -242,6 +242,7 @@ export function readResume(bytes: Uint8Array) {
   const { blocks, pages } = readBlocks(open(bytes))
   const bodySize = bodySizeOf(blocks)
   return {
+    pageCount: pages.length,
     paragraphs: blocks.filter((block) => editable(block, bodySize)).map(({ id, text, maxChars }): PdfParagraph => ({ id, text, maxChars })),
     text: pages.flat().map((line) => line.text).join('\n'),
   }

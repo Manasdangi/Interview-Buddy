@@ -48,6 +48,13 @@ describe('readResume', () => {
     expect(text).toContain('asha@example.com')
   })
 
+  it('counts the pages, so longer resumes can be refused', () => {
+    expect(readResume(makePdf(rows)).pageCount).toBe(1)
+    const document = new mupdf.PDFDocument(makePdf(rows))
+    document.insertPage(-1, document.addPage([0, 0, 595, 842], 0, {}, ''))
+    expect(readResume(document.saveToBuffer('').asUint8Array().slice()).pageCount).toBe(2)
+  })
+
   it('finds nothing to edit on a page without text', () => {
     expect(readResume(makePdf([])).paragraphs).toEqual([])
   })

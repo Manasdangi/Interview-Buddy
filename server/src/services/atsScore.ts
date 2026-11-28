@@ -39,11 +39,13 @@ export const normalize = (value: string) =>
 const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** Whole-word match, allowing a plural "s" ("API" matches "APIs"); a trailing full stop does not block a match. */
-export function containsTerm(normalizedText: string, term: string) {
+export function countTerm(normalizedText: string, term: string) {
   const t = normalize(term).replace(/\.+$/, '')
-  if (!t) return false
-  return new RegExp(`(?<![a-z0-9+#])${escape(t)}(?:e?s)?(?![a-z0-9+#])`).test(normalizedText)
+  if (!t) return 0
+  return normalizedText.match(new RegExp(`(?<![a-z0-9+#])${escape(t)}(?:e?s)?(?![a-z0-9+#])`, 'g'))?.length ?? 0
 }
+
+export const containsTerm = (normalizedText: string, term: string) => countTerm(normalizedText, term) > 0
 
 export const keywordFound = (normalizedText: string, keyword: Keyword) =>
   [keyword.term, ...keyword.aliases].some((term) => containsTerm(normalizedText, term))

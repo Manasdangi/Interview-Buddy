@@ -28,6 +28,7 @@ export type ImproveResumeRequest = {
   fixes: string[]
   missingKeywords: string[]
   matchedKeywords: string[]
+  notes: string
 }
 
 export async function requestImprovedResume(input: ImproveResumeRequest): Promise<ImprovedResumeResult> {

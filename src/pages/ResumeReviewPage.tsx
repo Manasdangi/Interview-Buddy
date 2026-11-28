@@ -107,7 +107,7 @@ function Report({ review, target, onReset }: { review: ResumeReview; target: Tar
         </button>
       </div>
 
-      {review.atsScore > 0 && (review.improvements.length || review.rewrites.length) ? (
+      {review.atsScore > 0 ? (
         <ImprovedResumePanel review={review} {...target} />
       ) : null}
 

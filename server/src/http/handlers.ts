@@ -182,7 +182,7 @@ export const resumeReview: ApiHandler = async (req) => {
   const body = getBody(req)
   // The rewrite shares this function (Vercel's plan limits how many there are) but has its own rate limit.
   if (body.mode === 'improve') {
-    enforceRateLimit(`resume-improve:${uid ?? req.ip ?? 'unknown'}`, 6, hourMs)
+    enforceRateLimit(`resume-improve:${uid ?? req.ip ?? 'unknown'}`, 10, hourMs)
     return { status: 200, body: { improved: await improveResume(body) } }
   }
   enforceRateLimit(`resume:${uid ?? req.ip ?? 'unknown'}`, 10, hourMs)

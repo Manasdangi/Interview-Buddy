@@ -8,7 +8,12 @@ export type PdfParagraph = {
   maxChars: number
 }
 
-export type PdfEdit = { id: number; text: string }
+export type PdfEdit = {
+  id: number
+  text: string
+  /** The paragraph's content was swapped for one of the candidate's extra points. */
+  replaces?: boolean
+}
 
 export type ImprovedResumeResult = {
   edits: PdfEdit[]
@@ -18,3 +23,4 @@ export type ImprovedResumeResult = {
 
 export const maxResumeTextLength = 20_000
 export const maxResumeParagraphs = 150
+export const maxResumeNotesLength = 15_000

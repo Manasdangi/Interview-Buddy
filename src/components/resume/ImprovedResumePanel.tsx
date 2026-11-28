@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Download, Loader2, Sparkles } from 'lucide-react'
+import { maxResumeNotesLength } from '../../../shared/improvedResume'
 import type { ResumeReview } from '../../../shared/resumeReview'
 import { requestImprovedResume } from '../../services/resumeApi'
 import type { AppliedEdit } from '../../utils/pdfEdit'
 
 type Props = { review: ResumeReview; role: string; jobDescription: string; file: File }
-type Result = { pdf: Blob; applied: AppliedEdit[]; skipped: number; todo: string[] }
+type Result = { pdf: Blob; applied: AppliedEdit[]; replaced: Set<number>; skipped: number; todo: string[] }
 
 /** Replaces the PDF library's technical errors with one the candidate can act on. */
 function editPdf<T>(run: () => T): T {
@@ -17,9 +18,10 @@ function editPdf<T>(run: () => T): T {
 }
 
 const primaryButton =
-  'mt-4 inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-pure transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60'
+  'mr-3 mt-4 inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-pure transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60'
 
 export default function ImprovedResumePanel({ review, role, jobDescription, file }: Props) {
+  const [notes, setNotes] = useState('')
   const [result, setResult] = useState<Result | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +33,10 @@ export default function ImprovedResumePanel({ review, role, jobDescription, file
       // The PDF editor is large, so it is only loaded when someone asks for it.
       const { readResume, applyEdits } = await import('../../utils/pdfEdit')
       const bytes = new Uint8Array(await file.arrayBuffer())
-      const { paragraphs, text } = editPdf(() => readResume(bytes))
+      const { paragraphs, text, pageCount } = editPdf(() => readResume(bytes))
+      if (pageCount > 1) {
+        throw new Error(`Your resume is ${pageCount} pages. The improved resume must be 1 page and keeps your design, so please upload a 1-page version.`)
+      }
       if (!paragraphs.length) throw new Error('We found no editable text in this PDF. A scanned or image-only resume cannot be edited.')
       const fixes = [
         ...review.improvements.map((item) => `${item.issue} ${item.fix}`),
@@ -45,9 +50,11 @@ export default function ImprovedResumePanel({ review, role, jobDescription, file
         fixes,
         missingKeywords: review.missingKeywords,
         matchedKeywords: review.matchedKeywords,
+        notes: notes.trim(),
       })
       const { pdf, applied, skipped } = editPdf(() => applyEdits(bytes, edits))
-      setResult({ pdf: new Blob([new Uint8Array(pdf)], { type: 'application/pdf' }), applied, skipped, todo })
+      const replaced = new Set(edits.filter((edit) => edit.replaces).map((edit) => edit.id))
+      setResult({ pdf: new Blob([new Uint8Array(pdf)], { type: 'application/pdf' }), applied, replaced, skipped, todo })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not improve the resume. Please try again.')
     } finally {
@@ -70,9 +77,33 @@ export default function ImprovedResumePanel({ review, role, jobDescription, file
         Download your improved resume
       </h3>
       <p className="mt-1 text-sm text-slate-400">
-        Your own PDF with the same design: only the lines that need work are rewritten. It only uses what is already in your resume, so
-        missing keywords and numbers are not invented.
+        Your own PDF with the same design, kept to 1 page: weak lines are rewritten, or replaced with your extra points. Only your resume
+        and your points are used, so keywords and numbers are not invented.
       </p>
+
+      <label htmlFor="rr-notes" className="mt-4 block text-sm font-semibold text-white">
+        Extra points <span className="font-normal text-slate-400">(optional)</span>
+      </label>
+      <textarea
+        id="rr-notes"
+        value={notes}
+        onChange={(event) => setNotes(event.target.value)}
+        maxLength={maxResumeNotesLength}
+        rows={6}
+        disabled={loading}
+        aria-describedby="rr-notes-help"
+        placeholder={'Say which job or project each point belongs to, e.g.\nAcme Labs: rebuilt the cart and payment screens in React Native, cut load time by 30%.'}
+        className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/90 p-4 text-sm text-slate-200 placeholder:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+      />
+      <p id="rr-notes-help" className="mt-1 text-xs text-slate-500">
+        Write only what you can explain in an interview. No new lines are added: your best points replace weaker ones. Sent to the AI for
+        this rewrite and not stored.
+      </p>
+
+      <button type="button" onClick={() => void create()} disabled={loading} className={primaryButton}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
+        {loading ? 'Improving your resume… (about 20–50 s)' : result ? 'Create again' : 'Create improved resume'}
+      </button>
 
       {result ? (
         <>
@@ -95,6 +126,7 @@ export default function ImprovedResumePanel({ review, role, jobDescription, file
                       <span className="sr-only">After: </span>
                       {change.after}
                     </p>
+                    {result.replaced.has(change.id) ? <p className="mt-1 text-xs text-indigo-300">Replaced with your extra points.</p> : null}
                     {change.substitutedFont ? <p className="mt-1 text-xs text-amber-300">Uses a similar font, because yours could not be reused for this line.</p> : null}
                   </li>
                 ))}
@@ -124,12 +156,7 @@ export default function ImprovedResumePanel({ review, role, jobDescription, file
             </p>
           ) : null}
         </>
-      ) : (
-        <button type="button" onClick={() => void create()} disabled={loading} className={primaryButton}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
-          {loading ? 'Improving your resume… (about 20–40 s)' : 'Create improved resume'}
-        </button>
-      )}
+      ) : null}
 
       {error ? (
         <p role="alert" className="mt-3 text-sm text-rose-300">
