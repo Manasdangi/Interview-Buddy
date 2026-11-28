@@ -46,8 +46,6 @@ export type ResumeReview = {
   rewrites: ResumeRewrite[]
   /** Formatting and searchability checks run in code on the resume text. */
   checks?: ResumeCheck[]
-  /** The resume text as read from the PDF; sent back only when an improved version is requested. */
-  resumeText?: string
   /** Where the keywords came from. */
   keywordSource?: 'job description' | 'role'
 }

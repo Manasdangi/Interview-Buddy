@@ -9,6 +9,7 @@ type AppShellProps = {
 
 // These pages bring their own full-width "atlas" layout (graph-paper background, sidebar).
 const FULL_BLEED = ['/dsa', '/web']
+const SOURCE_URL = 'https://github.com/Manasdangi/Interview-Buddy'
 
 export function AppShell({ children }: AppShellProps) {
   const { pathname } = useLocation()
@@ -29,11 +30,13 @@ export function AppShell({ children }: AppShellProps) {
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <Header />
       <main className={fullBleed ? undefined : 'mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8'}>{children}</main>
-      {stats ? (
-        <footer className="border-t border-slate-800/70 py-4 text-center text-xs text-slate-500" aria-label="Site statistics">
-          👁 {format(stats.views)} total views · {format(stats.visitors)} unique visitors
-        </footer>
-      ) : null}
+      <footer className="border-t border-slate-800/70 py-4 text-center text-xs text-slate-500">
+        {stats ? <span>👁 {format(stats.views)} total views · {format(stats.visitors)} unique visitors · </span> : null}
+        {/* The AGPL licence requires that people using the app can get its source. */}
+        <a href={SOURCE_URL} target="_blank" rel="noreferrer" className="underline hover:text-slate-300">
+          Source code (AGPL-3.0)
+        </a>
+      </footer>
     </div>
   )
 }

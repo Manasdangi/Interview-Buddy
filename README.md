@@ -10,7 +10,7 @@ Interview Buddy is a React + TypeScript + Vite MVP that simulates a frontend int
 - Five question-set variants for every difficulty level
 - AI interviewer chat flow with follow-ups and one-question-at-a-time behavior
 - Every interview (10 questions) opens with 5-6 linked questions about one project, each built on the previous answer
-- Resume ATS checker, with an improved resume you can download as a PDF in two layouts (Classic and Modern)
+- Resume ATS checker, which can download your own PDF with the same design and only the weak lines rewritten (edited in the browser with [MuPDF.js](https://mupdf.com/))
 - Optional resume upload (PDF, max 3 MB) per interview: questions use your projects, domain and experience; the PDF is not stored
 - Backend-powered session storage with Express, Firestore, and the Claude API
 - Adaptive interviewer: sees your full answer (and code), picks a follow-up type (hint, why, edge case, scale, changed requirement) and only moves topic after at most two follow-ups
@@ -106,3 +106,7 @@ This runs the server tests plus the pure-logic tests next to the frontend utilit
 - Firestore stores interview sessions when Firebase Admin credentials are configured
 - Tailwind CSS is used for a dark, modern UI
 - For local backend development, run `cd server && npm run dev`; it now watches for file changes and reloads automatically
+
+## License
+
+GNU Affero General Public License v3.0 or later (see `LICENSE`). The in-place PDF editing uses [MuPDF.js](https://github.com/ArtifexSoftware/mupdf.js), which is AGPL licensed, so anyone who uses a deployed copy of this app must be able to get its source code. The footer links to it.

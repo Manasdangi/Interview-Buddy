@@ -80,7 +80,9 @@ function ScoreRing({ score }: { score: number }) {
   )
 }
 
-function Report({ review, target, onReset }: { review: ResumeReview; target: { role: string; jobDescription: string }; onReset: () => void }) {
+type Target = { role: string; jobDescription: string; file: File }
+
+function Report({ review, target, onReset }: { review: ResumeReview; target: Target; onReset: () => void }) {
   const b = band(review.atsScore)
   return (
     <div className="space-y-5" aria-live="polite">
@@ -105,8 +107,8 @@ function Report({ review, target, onReset }: { review: ResumeReview; target: { r
         </button>
       </div>
 
-      {review.resumeText && (review.improvements.length || review.rewrites.length) ? (
-        <ImprovedResumePanel review={review} role={target.role} jobDescription={target.jobDescription} />
+      {review.atsScore > 0 && (review.improvements.length || review.rewrites.length) ? (
+        <ImprovedResumePanel review={review} {...target} />
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -305,8 +307,8 @@ export default function ResumeReviewPage() {
         </p>
       </div>
 
-      {review ? (
-        <Report review={review} target={{ role, jobDescription: jd.trim() }} onReset={() => setReview(null)} />
+      {review && file ? (
+        <Report review={review} target={{ role, jobDescription: jd.trim(), file }} onReset={() => setReview(null)} />
       ) : loading ? (
         <ScanLoader />
       ) : (

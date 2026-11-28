@@ -1,21 +1,20 @@
-// Shared between the resume page and the API: the rewritten resume that both downloadable layouts are built from.
+// Shared between the resume page and the API: the paragraphs of an uploaded resume that are rewritten in place.
 
-export type ImprovedResume = {
-  name: string
-  headline: string
-  contact: string[]
-  summary: string
-  experience: Array<{ title: string; company: string; location: string; dates: string; bullets: string[] }>
-  projects: Array<{ name: string; tech: string; bullets: string[] }>
-  skills: Array<{ category: string; items: string[] }>
-  education: Array<{ degree: string; school: string; dates: string; detail: string }>
-  extras: Array<{ heading: string; items: string[] }>
+export type PdfParagraph = {
+  id: number
+  /** Paragraph text; **double asterisks** mark bold runs. */
+  text: string
+  /** The rewrite may not be longer than this, so it fits the space on the page. */
+  maxChars: number
 }
 
+export type PdfEdit = { id: number; text: string }
+
 export type ImprovedResumeResult = {
-  resume: ImprovedResume
-  /** Things only the candidate can add or confirm, e.g. real numbers or full links. */
+  edits: PdfEdit[]
+  /** Things only the candidate can add or fix, e.g. real numbers or layout changes. */
   todo: string[]
 }
 
 export const maxResumeTextLength = 20_000
+export const maxResumeParagraphs = 150
