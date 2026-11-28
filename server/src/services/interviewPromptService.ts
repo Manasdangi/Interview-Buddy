@@ -72,6 +72,10 @@ function getTopicAt(variant: DailyQuestionVariant, index: number) {
   return variant.topicPath[Math.max(0, Math.min(variant.topicPath.length - 1, index))] ?? 'the current topic'
 }
 
+function buildTransitionPlaybook(dailyVariant: DailyQuestionVariant) {
+  return `The opening project deep-dive has just finished. Assess the latest answer, thank them in a few words, then ask a fresh question about: ${getTopicAt(dailyVariant, 0)}. "nextMove" MUST be NEXT_TOPIC.`
+}
+
 function buildFollowUpPlaybook(session: InterviewSession, dailyVariant: DailyQuestionVariant) {
   const state = session.interviewState
   const currentTopic = getTopicAt(dailyVariant, state.topicIndex)
@@ -118,7 +122,7 @@ function formatStructuredState(session: InterviewSession) {
 }`
 }
 
-export type InterviewPromptMode = 'FIRST_QUESTION' | 'FOLLOW_UP'
+export type InterviewPromptMode = 'FIRST_QUESTION' | 'FOLLOW_UP' | 'TRANSITION'
 
 /**
  * Company mock-round brief. It takes priority over the generic focus areas so the round feels like that
@@ -179,7 +183,7 @@ Use the topic path as the source of today's topics. The same track, difficulty, 
     ? 'Conversation so far: none yet.'
     : `${buildConversationContext(session)}
 
-${buildFollowUpPlaybook(session, dailyVariant)}`
+${mode === 'TRANSITION' ? buildTransitionPlaybook(dailyVariant) : buildFollowUpPlaybook(session, dailyVariant)}`
 
   const basePrompt = {
     ROUND_1: `You are a senior frontend interviewer conducting Round 1 for a frontend developer.
@@ -317,10 +321,18 @@ export function buildScorecardPrompt(
   dailyVariant: DailyQuestionVariant,
   chatHistory: InterviewMessage[],
   company?: CompanyInterviewContext,
+  project?: { questions: number; resumeData: string },
 ) {
   const history = chatHistory
     .map((message) => `${message.role === 'AI' ? 'Interviewer' : 'Candidate'}: ${message.content}`)
     .join('\n')
+
+  const projectSection = project
+    ? `
+The first ${project.questions} interviewer questions were a linked deep-dive into one project. Also return "projectReview": 1-4 entries, one per claim the candidate made or listed that was actually probed. Each has "claim" (at most 20 words), "verdict" (SOLID = explained it with convincing detail; SHAKY = partly explained; NOT_DEFENDED = could not back it up), "feedback" (1-2 sentences) and "howToImprove" (1-2 sentences on how to answer it better). Do not review claims that were never discussed.
+${project.resumeData}
+`
+    : ''
 
   return `You are an expert frontend interview evaluator writing a post-interview report for the candidate.
 
@@ -342,7 +354,8 @@ ${formatTopicPath(dailyVariant)}
 Conversation:
 ${history}
 
-Return valid JSON only in this exact shape. Do not add markdown, code fences, explanations, labels, or extra keys:
+${projectSection}
+Return valid JSON only in this exact shape. Do not add markdown, code fences, explanations, labels, or extra keys${project ? ' other than "projectReview"' : ''}:
 {
   "overallScore": 0,
   "technicalScore": 0,

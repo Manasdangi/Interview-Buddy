@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import type { ProjectVerdict } from '../../../shared/projectChain'
 import type { HiringSignal, InterviewMessage, InterviewScorecard, QuestionReview, RubricScores } from '../../types/interview'
 import { formatSeconds, getAnswerTimings, questionTargetSeconds } from '../../utils/pacing'
 import { cn } from '../../utils/cn'
@@ -24,6 +25,12 @@ const hiringSignalStyles: Record<HiringSignal, { label: string; text: string; bo
   HIRE: { label: 'Hire', text: 'text-emerald-300', box: 'border-emerald-800/40 bg-emerald-950/30' },
   LEAN_NO_HIRE: { label: 'Lean no hire', text: 'text-amber-300', box: 'border-amber-800/40 bg-amber-950/30' },
   NO_HIRE: { label: 'No hire', text: 'text-rose-300', box: 'border-rose-800/40 bg-rose-950/30' },
+}
+
+const verdictStyles: Record<ProjectVerdict, { label: string; className: string }> = {
+  SOLID: { label: 'Solid', className: 'bg-emerald-500/10 text-emerald-300' },
+  SHAKY: { label: 'Shaky', className: 'bg-amber-500/10 text-amber-300' },
+  NOT_DEFENDED: { label: 'Not defended', className: 'bg-rose-500/10 text-rose-300' },
 }
 
 function scoreTone(score: number) {
@@ -164,6 +171,34 @@ export function ScoreCard({ scorecard, messages = [], startedAt, completedAt }: 
               </li>
             ))}
           </ol>
+        </section>
+      ) : null}
+
+      {scorecard.projectReview?.length ? (
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-lg font-semibold text-white">Project deep-dive</h3>
+            <p className="text-sm text-slate-400">How well you backed up what you built.</p>
+          </div>
+          <ul className="space-y-3">
+            {scorecard.projectReview.map((item, index) => (
+              <li key={`${index}-${item.claim}`} className="rounded-3xl border border-slate-800/80 bg-slate-900/70 p-4 text-sm leading-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <p className="min-w-0 flex-1 font-medium text-white">{item.claim}</p>
+                  <span className={cn('rounded-full px-3 py-1 text-xs font-semibold', verdictStyles[item.verdict].className)}>
+                    {verdictStyles[item.verdict].label}
+                  </span>
+                </div>
+                <p className="mt-2 text-slate-300">{item.feedback}</p>
+                {item.howToImprove ? (
+                  <p className="mt-2 text-slate-400">
+                    <span className="font-semibold text-slate-200">Next time: </span>
+                    {item.howToImprove}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

@@ -66,12 +66,14 @@ export const startInterview = async (
   difficulty: Difficulty,
   questionSet: QuestionSet | undefined,
   company?: CompanyStartOptions,
+  resumeBase64?: string,
 ) => {
   const response = await client.post<{ session: InterviewSession; accessKey: string }>('/interviews/start', {
     interviewType,
     difficulty,
     questionSet,
     ...(company ?? {}),
+    ...(resumeBase64 ? { resumeBase64 } : {}),
   })
   saveSessionAccessKey(response.data.session.id, response.data.accessKey)
   return response.data.session

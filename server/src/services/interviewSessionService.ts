@@ -13,11 +13,23 @@ import type {
   StoredInterviewSession,
 } from '../types/interview.js'
 import { HttpError } from '../utils/httpError.js'
-import { generateJson, generateText } from './claudeService.js'
+import { generateJson, generateJsonFromPdf, generateText } from './claudeService.js'
 import { transcribeAudio } from './transcriptionService.js'
 import { maxSpeechTextLength, synthesizeSpeech } from './speechService.js'
 import { buildScorecardPrompt, createInterviewPrompt, maxFollowUpsPerTopic } from './interviewPromptService.js'
-import { interviewTurnSchema, parseInterviewTurn, parseScorecard, scorecardSchema, type ParsedInterviewTurn } from './aiResponseParsing.js'
+import { interviewTurnSchema, parseInterviewTurn, parseScorecard, projectScorecardSchema, scorecardSchema, type ParsedInterviewTurn } from './aiResponseParsing.js'
+import {
+  buildChainTurnPrompt,
+  buildProjectStartPrompt,
+  buildResumeStartPrompt,
+  chainTurnSchema,
+  formatResumeData,
+  parseChainTurn,
+  parseResumeStart,
+  resumeStartSchema,
+  validateResume,
+} from './projectChainService.js'
+import { interviewQuestionCount, projectChainLength } from '../../../shared/projectChain.js'
 import { createId } from '../utils/id.js'
 import {
   createInterviewSession,
@@ -35,8 +47,7 @@ export type SessionAccess = {
 
 const interviewTypes: InterviewType[] = ['ROUND_1', 'ROUND_2', 'SYSTEM_DESIGN']
 const difficulties: Difficulty[] = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED']
-// Counts every interviewer turn: the daily topics plus the follow-ups that dig into them.
-const defaultMaxQuestions = 8
+const resumeStartMaxTokens = 3_000
 const defaultQuestionSet: QuestionSet = 1
 const promptStateHistoryLimit = 4
 const scorecardAttempts = 2
@@ -80,6 +91,7 @@ export function toPublicSession(session: StoredInterviewSession): InterviewSessi
   delete publicSession.accessKeyHash
   delete publicSession.version
   delete publicSession.pendingTurnAt
+  delete publicSession.resumeProfile
   return publicSession
 }
 
@@ -154,8 +166,10 @@ function buildSession(interviewType: InterviewType, difficulty: Difficulty, ques
     status: 'ACTIVE',
     messages: [],
     currentQuestionCount: 0,
-    maxQuestions: defaultMaxQuestions,
+    // Counts every interviewer turn: the project deep-dive, then the daily topics and their follow-ups.
+    maxQuestions: interviewQuestionCount,
     interviewState: createInterviewState(),
+    projectChain: { asked: 0, done: false, struggles: 0, fromResume: false, focus: '' },
     startedAt,
   }
   return session
@@ -202,7 +216,8 @@ export function getDifficultyTrend(recentAnswerQualities: AnswerQuality[]): Diff
 }
 
 function updateStateAfterQuestion(session: InterviewSession) {
-  const topic = getCurrentTopic(session)
+  const chain = session.projectChain
+  const topic = chain && !chain.done ? chain.focus || 'Project deep-dive' : getCurrentTopic(session)
 
   session.interviewState = {
     ...session.interviewState,
@@ -271,6 +286,58 @@ function updateStateAfterAnswer(session: InterviewSession, quality: AnswerQualit
   }
 }
 
+/** Late in the interview, makes sure a company's behavioural question is not crowded out by the deep-dive. */
+function reserveBehaviouralQuestion(session: StoredInterviewSession) {
+  const context = session.company
+  if (!session.projectChain || !context || session.currentQuestionCount + 1 !== session.maxQuestions) return
+
+  const company = findCompany(context.companyId)
+  const behaviouralTopic = company ? findCompanyRound(company, session.interviewType)?.behavioralTopic : undefined
+  const lastIndex = getSessionDailyVariant(session).topicPath.length - 1
+  if (!behaviouralTopic || session.interviewState.topicIndex >= lastIndex) return
+
+  // Forces the next move onto the final topic, which is the behavioural one.
+  session.interviewState = { ...session.interviewState, topicIndex: lastIndex - 1, followUpsOnTopic: maxFollowUpsPerTopic }
+}
+
+/**
+ * Assesses the latest answer, updates the interview state and returns the next interviewer message:
+ * a linked project question while the deep-dive runs, then the round's own topics.
+ */
+async function takeTurn(session: StoredInterviewSession, onMessageDelta?: (text: string) => void) {
+  const chain = session.projectChain
+  const variant = getSessionDailyVariant(session)
+  const questionSet = normalizeQuestionSet(session.questionSet)
+  const askModel = (prompt: string, schema: Parameters<typeof generateJson>[2]) =>
+    generateJson(prompt, 'Assess the latest candidate answer and continue the interview.', schema, { onMessageDelta })
+
+  if (chain && !chain.done) {
+    // The deep-dive is used up (all questions asked, or two answers in a row not attempted).
+    if (chain.asked >= projectChainLength || chain.struggles >= 2) {
+      const turn = parseInterviewTurn(await askModel(createInterviewPrompt(session, questionSet, variant, 'TRANSITION'), interviewTurnSchema))
+      updateStateAfterAnswer(session, turn.answerQuality)
+      session.projectChain = { ...chain, done: true }
+      return turn.message
+    }
+
+    const turn = parseChainTurn(await askModel(buildChainTurnPrompt(session, variant.topicPath[0] ?? 'frontend fundamentals'), chainTurnSchema))
+    updateStateAfterAnswer(session, turn.answerQuality)
+    session.projectChain = {
+      ...chain,
+      asked: turn.closeThread ? chain.asked : chain.asked + 1,
+      done: turn.closeThread,
+      struggles: turn.couldNotAnswer ? chain.struggles + 1 : 0,
+    }
+    return turn.message
+  }
+
+  reserveBehaviouralQuestion(session)
+  const turn = parseInterviewTurn(await askModel(createInterviewPrompt(session, questionSet, variant, 'FOLLOW_UP'), interviewTurnSchema))
+  updateStateAfterAnswer(session, turn.answerQuality)
+  applyMoveToState(session, turn)
+  return turn.message
+}
+
 /** Loads a session the caller owns; responds 404 (not 403) so session ids can't be probed. */
 export async function getAuthorizedSession(sessionId: string | undefined, access: SessionAccess) {
   if (!sessionId) {
@@ -312,6 +379,8 @@ async function runExclusiveTurn<T>(session: StoredInterviewSession, work: (sessi
 }
 
 async function generateScorecard(session: InterviewSession): Promise<InterviewScorecard> {
+  const chain = (session as StoredInterviewSession).projectChain
+  const resumeProfile = (session as StoredInterviewSession).resumeProfile
   const prompt = buildScorecardPrompt(
     session.interviewType,
     session.difficulty,
@@ -319,10 +388,14 @@ async function generateScorecard(session: InterviewSession): Promise<InterviewSc
     getSessionDailyVariant(session),
     session.messages,
     session.company,
+    chain?.asked
+      ? { questions: chain.asked, resumeData: resumeProfile ? formatResumeData(resumeProfile) : '' }
+      : undefined,
   )
+  const schema = chain?.asked ? projectScorecardSchema : scorecardSchema
 
   for (let attempt = 0; attempt < scorecardAttempts; attempt += 1) {
-    const scorecard = parseScorecard(await generateJson(prompt, 'Generate the scorecard.', scorecardSchema, { long: true }))
+    const scorecard = parseScorecard(await generateJson(prompt, 'Generate the scorecard.', schema, { long: true }))
     if (scorecard) return scorecard
   }
 
@@ -352,7 +425,7 @@ function resolveCompanySelection(input: { companyId?: unknown; role?: unknown },
 }
 
 export async function startInterviewSession(
-  input: { interviewType?: unknown; difficulty?: unknown; questionSet?: unknown; companyId?: unknown; role?: unknown },
+  input: { interviewType?: unknown; difficulty?: unknown; questionSet?: unknown; companyId?: unknown; role?: unknown; resumeBase64?: unknown },
   uid: string | null,
 ) {
   const interviewType = interviewTypes.find((type) => type === input.interviewType)
@@ -360,6 +433,7 @@ export async function startInterviewSession(
     throw new HttpError(400, 'A valid interviewType is required.')
   }
 
+  const resume = validateResume(input.resumeBase64)
   const selection = resolveCompanySelection(input, interviewType)
   const difficulty = selection ? roleDefinitions[selection.role].difficulty : difficulties.find((level) => level === input.difficulty)
   if (!difficulty) {
@@ -375,10 +449,22 @@ export async function startInterviewSession(
   session.uid = uid ?? undefined
   session.accessKeyHash = hashAccessKey(accessKey)
 
-  const prompt = createInterviewPrompt(session, questionSet, getSessionDailyVariant(session), 'FIRST_QUESTION')
-  const aiText = await generateText(prompt, 'Begin the interview with the first question.')
+  const chain = session.projectChain!
+  let aiText: string
+  if (resume) {
+    const started = parseResumeStart(
+      await generateJsonFromPdf(buildResumeStartPrompt(session), resume, 'Read the resume and open the interview.', resumeStartSchema, resumeStartMaxTokens),
+    )
+    session.resumeProfile = started.profile
+    chain.fromResume = true
+    chain.focus = started.focus
+    aiText = started.message
+  } else {
+    aiText = await generateText(buildProjectStartPrompt(session), 'Begin the interview with the first question.')
+  }
   session.messages.push(createMessage('AI', aiText))
   session.currentQuestionCount = 1
+  chain.asked = 1
   updateStateAfterQuestion(session)
 
   await createInterviewSession(session)
@@ -415,16 +501,9 @@ export async function addInterviewMessage(
       return null
     }
 
-    const prompt = createInterviewPrompt(current, normalizeQuestionSet(current.questionSet), getSessionDailyVariant(current), 'FOLLOW_UP')
-    const turn = parseInterviewTurn(
-      await generateJson(prompt, 'Assess the latest candidate answer and continue the interview.', interviewTurnSchema, {
-        onMessageDelta: onReplyDelta,
-      }),
-    )
-    updateStateAfterAnswer(current, turn.answerQuality)
-    applyMoveToState(current, turn)
+    const reply = await takeTurn(current, onReplyDelta)
 
-    const nextMessage = createMessage('AI', turn.message)
+    const nextMessage = createMessage('AI', reply)
     current.messages.push(nextMessage)
     current.currentQuestionCount += 1
     updateStateAfterQuestion(current)

@@ -24,6 +24,8 @@ const {
   toPublicSession,
 } = await import('./interviewSessionService.js')
 
+const { getStoredInterviewSession, updateInterviewSession } = await import('./interviewSessionRepository.js')
+
 const scorecardJson = JSON.stringify({
   overallScore: 6,
   technicalScore: 6,
@@ -45,6 +47,13 @@ function mockModel() {
       ? scorecardJson
       : JSON.stringify({ answerQuality: 'STRONG', message: 'Next question?' }),
   )
+}
+
+/** Marks the opening deep-dive finished, for tests about the round's own topics. */
+async function skipProjectChain(sessionId: string) {
+  const stored = (await getStoredInterviewSession(sessionId))!
+  stored.projectChain!.done = true
+  await updateInterviewSession(stored, stored.version ?? 0)
 }
 
 async function startGuestSession() {
@@ -159,21 +168,23 @@ describe('adaptive follow-ups', () => {
     const { session, accessKey } = await startGuestSession()
     const access = { uid: null, sessionKey: accessKey }
     expect(session.interviewState.topicIndex).toBe(0)
+    await skipProjectChain(session.id)
 
     generateJson.mockResolvedValueOnce(JSON.stringify({ answerQuality: 'MODERATE', gaps: ['cleanup'], nextMove: 'PROBE_WHY', message: 'Why?' }))
     const afterFollowUp = (await addInterviewMessage(session.id, 'a1', access)).session
     expect(afterFollowUp.interviewState).toMatchObject({ topicIndex: 0, followUpsOnTopic: 1, openGaps: ['cleanup'], lastMove: 'PROBE_WHY' })
-    expect(afterFollowUp.interviewState.lastQuestionTopic).toBe(session.interviewState.lastQuestionTopic)
+    expect(afterFollowUp.interviewState.lastQuestionTopic).toBe(session.dailyQuestionVariant!.topicPath[0])
 
     generateJson.mockResolvedValueOnce(JSON.stringify({ answerQuality: 'STRONG', gaps: [], nextMove: 'NEXT_TOPIC', message: 'New topic?' }))
     const afterNext = (await addInterviewMessage(session.id, 'a2', access)).session
     expect(afterNext.interviewState).toMatchObject({ topicIndex: 1, followUpsOnTopic: 0, openGaps: [], lastMove: 'NEXT_TOPIC' })
-    expect(afterNext.interviewState.lastQuestionTopic).not.toBe(session.interviewState.lastQuestionTopic)
+    expect(afterNext.interviewState.lastQuestionTopic).toBe(session.dailyQuestionVariant!.topicPath[1])
   })
 
   it('shows the model the full latest answer, not a digest', async () => {
     const { session, accessKey } = await startGuestSession()
     const longAnswer = `${'x'.repeat(900)}END_OF_ANSWER`
+    await skipProjectChain(session.id)
     generateJson.mockClear()
     await addInterviewMessage(session.id, longAnswer, { uid: null, sessionKey: accessKey })
     const prompt = generateJson.mock.calls[0][0]

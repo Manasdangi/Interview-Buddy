@@ -7,11 +7,11 @@ const ANTHROPIC_VERSION = '2023-06-01'
 const DEFAULT_MODEL = 'claude-sonnet-5-5'
 const TEXT_TIMEOUT_MS = 25_000
 // The report writes an ideal answer per question, which takes noticeably longer than a chat turn.
-const REPORT_TIMEOUT_MS = 50_000
+const REPORT_TIMEOUT_MS = 55_000
 /** The resume call returns the resume text too, so it gets most of Vercel's 60 s function limit. */
 const PDF_TIMEOUT_MS = 56_000
 const TEXT_MAX_TOKENS = 1_024
-const REPORT_MAX_TOKENS = 6_000
+const REPORT_MAX_TOKENS = 8_000
 const MAX_RETRIES = 1
 // 529 is Anthropic's "overloaded" status.
 const RETRYABLE_STATUSES = new Set([500, 502, 503, 504, 529])
@@ -298,9 +298,9 @@ export async function generateJsonFromPdf(systemPrompt: string, pdfBase64: strin
       ],
     },
   ]
-  const data = await callClaude(payload, 'Claude could not review the resume.', PDF_TIMEOUT_MS)
+  const data = await callClaude(payload, 'Claude could not read the resume.', PDF_TIMEOUT_MS)
   if (data.stop_reason === 'max_tokens') {
-    throw new HttpError(502, 'The review was cut off. Please retry.')
+    throw new HttpError(502, 'Claude\'s response was cut off. Please retry.')
   }
   const toolUse = (data.content ?? []).find((block) => block.type === 'tool_use')
   if (toolUse && toolUse.input !== undefined && toolUse.input !== null) {

@@ -30,6 +30,8 @@ type InterviewState = {
     difficulty: Difficulty,
     questionSet?: QuestionSet,
     company?: CompanyStartOptions,
+    /** The candidate's resume PDF; questions are then based on it. */
+    resumeBase64?: string,
   ) => Promise<InterviewSession | null>
   /** Interviewer reply text streamed so far for the answer being sent. */
   streamingReply: string | null
@@ -57,10 +59,10 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
   error: null,
   streamingReply: null,
 
-  startInterview: async (interviewType, difficulty, questionSet, company) => {
+  startInterview: async (interviewType, difficulty, questionSet, company, resumeBase64) => {
     set({ starting: true, error: null })
     try {
-      const session = await startInterview(interviewType, difficulty, questionSet, company)
+      const session = await startInterview(interviewType, difficulty, questionSet, company, resumeBase64)
       saveActiveBrowserSession(session)
       set((state) => ({ currentSession: session, sessions: replaceSession(state.sessions, session) }))
       return session

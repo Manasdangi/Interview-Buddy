@@ -9,6 +9,8 @@ Interview Buddy is a React + TypeScript + Vite MVP that simulates a frontend int
 - Beginner, Intermediate, and Advanced difficulty selection
 - Five question-set variants for every difficulty level
 - AI interviewer chat flow with follow-ups and one-question-at-a-time behavior
+- Every interview (10 questions) opens with 5-6 linked questions about one project, each built on the previous answer
+- Optional resume upload (PDF, max 3 MB) per interview: questions use your projects, domain and experience; the PDF is not stored
 - Backend-powered session storage with Express, Firestore, and the Claude API
 - Adaptive interviewer: sees your full answer (and code), picks a follow-up type (hint, why, edge case, scale, changed requirement) and only moves topic after at most two follow-ups
 - 45-minute countdown, a per-question timer, and auto-complete when time runs out

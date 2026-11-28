@@ -9,6 +9,7 @@ import {
   type CompanyRoleLevel,
   type CompanyRoundBlueprint,
 } from '../../shared/companyCatalog'
+import { ResumeUpload, type ResumeFile } from '../components/interview/ResumeUpload'
 import { Button } from '../components/ui/Button'
 import { ErrorToast } from '../components/ui/ErrorToast'
 import { CompanyMonogram } from '../components/company/CompanyMonogram'
@@ -23,6 +24,7 @@ export default function CompanyPage() {
   const company = findCompany(companyId)
   const [role, setRole] = useState<CompanyRoleLevel>('FE1')
   const [startingRound, setStartingRound] = useState<string | null>(null)
+  const [resume, setResume] = useState<ResumeFile | null>(null)
   const navigate = useNavigate()
   const { startInterview, starting, error } = useInterviewStore()
 
@@ -34,7 +36,7 @@ export default function CompanyPage() {
     // This tap allows the interviewer's voice to play as soon as the interview page opens.
     unlockAudio()
     setStartingRound(round.type)
-    const session = await startInterview(round.type, roleInfo.difficulty, undefined, { companyId: company.id, role })
+    const session = await startInterview(round.type, roleInfo.difficulty, undefined, { companyId: company.id, role }, resume?.base64)
     setStartingRound(null)
     if (session) navigate(`/interview/${session.id}`)
   }
@@ -89,6 +91,8 @@ export default function CompanyPage() {
         </p>
       </section>
 
+      <ResumeUpload resume={resume} onChange={setResume} disabled={starting} />
+
       <section className="space-y-4" aria-label="Interview rounds">
         {company.rounds.map((round, index) => (
           <article key={round.type} className="rounded-[2rem] border border-slate-800/80 bg-slate-950/90 p-6 shadow-soft">
@@ -121,7 +125,7 @@ export default function CompanyPage() {
                 </ul>
               </div>
               <Button className="shrink-0" onClick={() => void handleStart(round)} disabled={starting}>
-                {startingRound === round.type ? 'Starting…' : 'Start mock round'}
+                {startingRound === round.type ? (resume ? 'Reading your resume…' : 'Starting…') : 'Start mock round'}
               </Button>
             </div>
           </article>

@@ -38,6 +38,12 @@ export function ProblemStatement({ session }: ProblemStatementProps) {
             <span className="font-semibold text-white">Daily variant:</span> {session.dailyQuestionVariant.questionDate}
           </p>
         ) : null}
+        {session.projectChain && !session.projectChain.done && session.status === 'ACTIVE' ? (
+          <p>
+            <span className="font-semibold text-white">Now:</span>{' '}
+            {session.projectChain.fromResume ? 'Resume deep-dive' : 'Project deep-dive'}
+          </p>
+        ) : null}
         <p>
           <span className="font-semibold text-white">Questions asked:</span> {session.currentQuestionCount}/{session.maxQuestions}
         </p>

@@ -1,3 +1,5 @@
+import type { ProjectChain, ProjectReview } from '../../../shared/projectChain.js'
+
 export type InterviewType = 'ROUND_1' | 'ROUND_2' | 'SYSTEM_DESIGN'
 
 export type Difficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
@@ -72,6 +74,8 @@ export type InterviewScorecard = {
   /** Estimated hiring decision for this round, calibrated to the role (and company, when there is one). */
   hiringSignal?: HiringSignal
   hiringSignalReason?: string
+  /** How well the candidate explained the project or resume claims in the opening deep-dive. */
+  projectReview?: ProjectReview[]
 }
 
 export type DailyQuestionVariant = {
@@ -110,6 +114,8 @@ export type InterviewSession = {
   currentQuestionCount: number
   maxQuestions: number
   interviewState: InterviewState
+  /** Linked opening questions about one project; absent on older sessions. */
+  projectChain?: ProjectChain
   startedAt: string
   completedAt?: string
   scorecard?: InterviewScorecard
@@ -139,10 +145,19 @@ export type InterviewSummary = {
   updatedAt: string
 }
 
+/** What the interviewer keeps from an uploaded resume. The PDF itself is never stored. */
+export type ResumeProfile = {
+  yearsExperience: number
+  domains: string[]
+  skills: string[]
+  projects: Array<{ name: string; summary: string; claims: string[] }>
+}
+
 /** Server-only fields; never send these to the client. */
 export type StoredInterviewSession = InterviewSession & {
   uid?: string
   accessKeyHash?: string
   version?: number
   pendingTurnAt?: string
+  resumeProfile?: ResumeProfile
 }

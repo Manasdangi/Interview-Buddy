@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { ResumeUpload, type ResumeFile } from '../components/interview/ResumeUpload'
 import { Button } from '../components/ui/Button'
 import { ErrorToast } from '../components/ui/ErrorToast'
 import { useInterviewStore } from '../store/interviewStore'
@@ -47,6 +48,7 @@ export default function SelectDifficultyPage() {
   const { interviewType } = useParams<{ interviewType: string }>()
   const [selected, setSelected] = useState<Difficulty>('BEGINNER')
   const [selectedSet, setSelectedSet] = useState<QuestionSet>(1)
+  const [resume, setResume] = useState<ResumeFile | null>(null)
   const navigate = useNavigate()
   const { startInterview, starting, error } = useInterviewStore()
 
@@ -57,7 +59,7 @@ export default function SelectDifficultyPage() {
     // This tap allows the interviewer's voice to play as soon as the interview page opens.
     unlockAudio()
     if (!interviewType) return
-    const session = await startInterview(interviewType as InterviewType, selected, selectedSet)
+    const session = await startInterview(interviewType as InterviewType, selected, selectedSet, undefined, resume?.base64)
     if (session) {
       navigate(`/interview/${session.id}`)
     }
@@ -144,13 +146,15 @@ export default function SelectDifficultyPage() {
         </div>
       </div>
 
+      <ResumeUpload resume={resume} onChange={setResume} disabled={starting} />
+
       <div className="flex flex-col gap-4 rounded-3xl border border-slate-800/80 bg-slate-950/80 p-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-400">
           Selected: <span className="font-semibold text-white">{selectedDifficulty?.label} · Set {selectedSet}</span>
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={handleStart} disabled={starting}>
-            {starting ? 'Starting...' : 'Start Interview'}
+            {starting ? (resume ? 'Reading your resume...' : 'Starting...') : 'Start Interview'}
           </Button>
           <a href="/select-interview" className="inline-flex rounded-2xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-800">
             Change track

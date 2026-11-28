@@ -1,4 +1,5 @@
 import type { AnswerQuality, FollowUpMove, HiringSignal, InterviewScorecard, QuestionReview, RubricScores } from '../types/interview.js'
+import type { ProjectReview, ProjectVerdict } from '../../../shared/projectChain.js'
 import type { JsonSchema } from './claudeService.js'
 
 const answerQualities: AnswerQuality[] = ['UNKNOWN', 'WEAK', 'MODERATE', 'STRONG']
@@ -15,6 +16,8 @@ export const interviewTurnSchema: JsonSchema = {
   },
   required: ['answerQuality', 'gaps', 'nextMove', 'message'],
 }
+
+const projectVerdicts: ProjectVerdict[] = ['SOLID', 'SHAKY', 'NOT_DEFENDED']
 
 export const scorecardSchema: JsonSchema = {
   type: 'object',
@@ -74,6 +77,28 @@ export const scorecardSchema: JsonSchema = {
     'hiringSignal',
     'hiringSignalReason',
   ],
+}
+
+/** The scorecard for an interview that opened with a project deep-dive. */
+export const projectScorecardSchema: JsonSchema = {
+  ...scorecardSchema,
+  properties: {
+    ...(scorecardSchema.properties as Record<string, unknown>),
+    projectReview: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          claim: { type: 'string' },
+          verdict: { type: 'string', enum: projectVerdicts },
+          feedback: { type: 'string' },
+          howToImprove: { type: 'string' },
+        },
+        required: ['claim', 'verdict', 'feedback', 'howToImprove'],
+      },
+    },
+  },
+  required: [...(scorecardSchema.required as string[]), 'projectReview'],
 }
 
 /** Parses model JSON, tolerating code fences or prose around the object. */
@@ -159,6 +184,23 @@ function parseQuestionReviews(value: unknown): QuestionReview[] | undefined {
   return reviews.length ? reviews.slice(0, 10) : undefined
 }
 
+function parseProjectReview(value: unknown): ProjectReview[] | undefined {
+  if (!Array.isArray(value)) return undefined
+
+  const reviews: ProjectReview[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    const verdict = projectVerdicts.find((option) => option === record.verdict)
+    const claim = toText(record.claim, 300)
+    const feedback = toText(record.feedback, 600)
+    if (!verdict || !claim || !feedback) continue
+    reviews.push({ claim, verdict, feedback, howToImprove: toText(record.howToImprove, 600) })
+  }
+
+  return reviews.length ? reviews.slice(0, 4) : undefined
+}
+
 /**
  * Returns null when the model output is missing the core scorecard fields. The rubric and per-question
  * reviews are optional: when the model returns them malformed they are dropped instead of failing the report.
@@ -195,6 +237,7 @@ export function parseScorecard(result: string): InterviewScorecard | null {
 
   const rubric = parseRubric(parsed.rubric)
   const questionReviews = parseQuestionReviews(parsed.questionReviews)
+  const projectReview = parseProjectReview(parsed.projectReview)
   const hiringSignal = hiringSignals.find((signal) => signal === parsed.hiringSignal)
   const hiringSignalReason = typeof parsed.hiringSignalReason === 'string' ? parsed.hiringSignalReason.trim() : ''
 
@@ -211,6 +254,7 @@ export function parseScorecard(result: string): InterviewScorecard | null {
     finalFeedback,
     ...(rubric ? { rubric } : {}),
     ...(questionReviews ? { questionReviews } : {}),
+    ...(projectReview ? { projectReview } : {}),
     ...(hiringSignal ? { hiringSignal } : {}),
     ...(hiringSignal && hiringSignalReason ? { hiringSignalReason } : {}),
   }
