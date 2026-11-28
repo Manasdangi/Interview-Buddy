@@ -11,6 +11,7 @@ import {
 import { fileToBase64, requestResumeReview } from '../services/resumeApi'
 import { cn } from '../utils/cn'
 import ScanLoader from '../components/resume/ScanLoader'
+import ImprovedResumePanel from '../components/resume/ImprovedResumePanel'
 
 const card = 'rounded-[1.5rem] border border-slate-800/80 bg-slate-950/90 p-5 shadow-soft sm:p-6'
 const jdPlaceholder = `Paste the job description here...
@@ -79,7 +80,7 @@ function ScoreRing({ score }: { score: number }) {
   )
 }
 
-function Report({ review, onReset }: { review: ResumeReview; onReset: () => void }) {
+function Report({ review, target, onReset }: { review: ResumeReview; target: { role: string; jobDescription: string }; onReset: () => void }) {
   const b = band(review.atsScore)
   return (
     <div className="space-y-5" aria-live="polite">
@@ -103,6 +104,10 @@ function Report({ review, onReset }: { review: ResumeReview; onReset: () => void
           <RotateCcw className="h-4 w-4" aria-hidden="true" /> Check another
         </button>
       </div>
+
+      {review.resumeText && (review.improvements.length || review.rewrites.length) ? (
+        <ImprovedResumePanel review={review} role={target.role} jobDescription={target.jobDescription} />
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className={card} aria-labelledby="rr-breakdown">
@@ -301,7 +306,7 @@ export default function ResumeReviewPage() {
       </div>
 
       {review ? (
-        <Report review={review} onReset={() => setReview(null)} />
+        <Report review={review} target={{ role, jobDescription: jd.trim() }} onReset={() => setReview(null)} />
       ) : loading ? (
         <ScanLoader />
       ) : (

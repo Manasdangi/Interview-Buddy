@@ -161,6 +161,7 @@ export function parseResumeReview(raw: string, context: { experience: string; ha
     improvements,
     rewrites,
     checks: result.checks,
+    resumeText: notResume ? '' : resumeText,
     keywordSource: context.hasJobDescription ? 'job description' : 'role',
   }
 }

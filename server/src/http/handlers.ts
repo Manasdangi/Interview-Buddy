@@ -14,6 +14,7 @@ import { maxSpeechTextLength, streamSpeech } from '../services/speechService.js'
 import { listSummariesForUser, saveCompletedSummary, saveQuitSummary } from '../services/interviewSummaryService.js'
 import { enforceRateLimit } from './rateLimit.js'
 import { reviewResume } from '../services/resumeReviewService.js'
+import { improveResume } from '../services/resumeImproveService.js'
 import { getSiteStats, recordSiteVisit } from '../services/siteStatsService.js'
 
 /** Framework-neutral request shape shared by the Express server and the Vercel functions. */
@@ -178,8 +179,14 @@ export const transcribe: ApiHandler = async (req) => {
 
 export const resumeReview: ApiHandler = async (req) => {
   const uid = await getRequestUserId(req.headers.authorization)
+  const body = getBody(req)
+  // The rewrite shares this function (Vercel's plan limits how many there are) but has its own rate limit.
+  if (body.mode === 'improve') {
+    enforceRateLimit(`resume-improve:${uid ?? req.ip ?? 'unknown'}`, 6, hourMs)
+    return { status: 200, body: { improved: await improveResume(body) } }
+  }
   enforceRateLimit(`resume:${uid ?? req.ip ?? 'unknown'}`, 10, hourMs)
-  const review = await reviewResume(getBody(req))
+  const review = await reviewResume(body)
   return { status: 200, body: { review } }
 }
 
