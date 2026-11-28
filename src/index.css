@@ -54,3 +54,17 @@ textarea {
 #root {
   min-height: 100vh;
 }
+
+/* interview stage */
+.iv-avatar .iv-body { transform-origin: 100px 200px; animation: iv-breathe 4s ease-in-out infinite; }
+.iv-avatar .iv-eyes { transform-origin: 100px 92px; animation: iv-blink 5s infinite; }
+.iv-avatar .iv-mouth { transform-origin: 100px 116px; transform: scaleY(.35); transition: transform .12s; }
+.iv-avatar.is-speaking .iv-mouth { animation: iv-talk .42s ease-in-out infinite; }
+@keyframes iv-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.012) translateY(-1px); } }
+@keyframes iv-blink { 0%, 94%, 100% { transform: scaleY(1); } 96.5% { transform: scaleY(.08); } }
+@keyframes iv-talk { 0%, 100% { transform: scaleY(.35); } 25% { transform: scaleY(1.1); } 55% { transform: scaleY(.6); } 80% { transform: scaleY(.95); } }
+.iv-wave { display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; }
+.iv-wave i { width: 2px; background: #34d399; border-radius: 1px; animation: iv-bar .8s ease-in-out infinite; }
+.iv-wave i:nth-child(2) { animation-delay: .15s; } .iv-wave i:nth-child(3) { animation-delay: .3s; }
+@keyframes iv-bar { 0%, 100% { height: 3px; } 50% { height: 11px; } }
+@media (prefers-reduced-motion: reduce) { .iv-avatar .iv-body, .iv-avatar .iv-eyes, .iv-avatar.is-speaking .iv-mouth, .iv-wave i { animation: none; } .iv-avatar.is-speaking .iv-mouth { transform: scaleY(.8); } }

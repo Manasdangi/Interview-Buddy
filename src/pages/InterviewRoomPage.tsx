@@ -7,6 +7,9 @@ import { InterviewControls } from '../components/interview/InterviewControls'
 import { InterviewTimer } from '../components/interview/InterviewTimer'
 import { ProblemStatement } from '../components/interview/ProblemStatement'
 import { VoiceInterviewBar } from '../components/interview/VoiceInterviewBar'
+import { InterviewStage } from '../components/interview/InterviewStage'
+import { InterviewNotes } from '../components/interview/InterviewNotes'
+import { useWebcam } from '../hooks/useWebcam'
 import { useVoiceInterview } from '../hooks/useVoiceInterview'
 import { isLiveVoiceSupported, useLiveVoice } from '../hooks/useLiveVoice'
 import { isAudioUnlocked, LiveSpeaker, unlockAudio } from '../utils/liveSpeaker'
@@ -101,6 +104,12 @@ export default function InterviewRoomPage() {
   })
 
   const activeVoice = useLive ? live : voice
+  const camera = useWebcam()
+  const startCamera = camera.start
+  // The candidate tapped "Start interview" (a user gesture), so the camera can ask for permission right away.
+  useEffect(() => {
+    if (audioReady && hasActiveInterview) void startCamera()
+  }, [audioReady, hasActiveInterview, startCamera])
 
   const saveQuitSummary = async () => {
     if (!currentSession || currentSession.status !== 'ACTIVE') return
@@ -420,6 +429,20 @@ export default function InterviewRoomPage() {
     </Card>
   ) : null
 
+  const interviewerSpeaking = voiceMode ? activeVoice.phase === 'speaking' : Boolean(streamingReply)
+  const candidateSpeaking = voiceMode && activeVoice.phase === 'listening' && activeVoice.level > 0.12
+  const stage = (compact: boolean) => (
+    <InterviewStage
+      interviewerName="Interviewer"
+      interviewerRole={currentSession.company?.companyName ?? 'AI'}
+      interviewerSpeaking={interviewerSpeaking}
+      candidateSpeaking={candidateSpeaking}
+      camera={camera}
+      compact={compact}
+    />
+  )
+  const notes = <InterviewNotes sessionId={currentSession.id} />
+
   const controls = (
     <div ref={controlsRef}>
       {voiceMode && hasActiveInterview && audioReady ? (
@@ -500,8 +523,10 @@ export default function InterviewRoomPage() {
         {notices}
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
           <div className="space-y-4">
+            {stage(true)}
             {chatCard}
             {controls}
+            {notes}
           </div>
           <div className="xl:sticky xl:top-24 xl:self-start">{editorCard}</div>
         </div>
@@ -524,8 +549,10 @@ export default function InterviewRoomPage() {
 
       <div className="space-y-6">
         {notices}
+        {stage(false)}
         {chatCard}
         {controls}
+        {notes}
       </div>
     </div>
   )
